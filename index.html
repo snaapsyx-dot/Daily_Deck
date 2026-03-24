@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Карточки</title>
 <link rel="manifest" href="manifest.json">
 <meta name="mobile-web-app-capable" content="yes">
@@ -16,7 +16,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-html,body{height:100%;overscroll-behavior:none;}
+html,body{height:100%;overscroll-behavior:none;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
 body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased;}
 ::-webkit-scrollbar{display:none;}
 @keyframes scaleIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
@@ -33,7 +33,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;-w
 
 *{-webkit-tap-highlight-color:transparent;}
 body{-webkit-user-select:none;user-select:none;}
-input,textarea{-webkit-user-select:text!important;user-select:text!important;}
+input,textarea,select,button{-webkit-user-select:text!important;user-select:text!important;}
 </style>
 </head>
 <body>
@@ -146,9 +146,9 @@ function EditTaskSheet({task,onSave,onDelete,onToHabit,onClose}){
     <SectionLabel>Цвет</SectionLabel>
     <div style={{marginBottom:20}}><Swatches value={ci} onChange={setCi}/></div>
     <button onClick={()=>{if(text.trim())onSave(text.trim(),notes,recur,ci);}} style={{width:'100%',padding:13,borderRadius:14,border:'none',background:T.pill,color:T.pillTxt,fontSize:16,fontWeight:600,cursor:'pointer',marginBottom:11}}>Сохранить</button>
-    <div style={{display:'flex',gap:8}}>
-      <GlassBtn onClick={onToHabit} style={{flex:1,padding:12}}><IcLeaf c="#68c4a0" s={15}/> Р’ привычки</GlassBtn>
-      <GlassBtn onClick={onDelete} danger style={{flex:1,padding:12}}><IcTrash c="#ff3b30" s={15}/> Удалить</GlassBtn>
+    <div style={{display:'flex',gap:8,alignItems:'stretch'}}>
+      <GlassBtn onClick={onToHabit} style={{flex:1,padding:12,minWidth:0,whiteSpace:'nowrap'}}><IcLeaf c="#68c4a0" s={15}/> В привычки</GlassBtn>
+      <GlassBtn onClick={onDelete} danger style={{flex:1,padding:12,minWidth:0,whiteSpace:'nowrap'}}><IcTrash c="#ff3b30" s={15}/> Удалить</GlassBtn>
     </div>
   </Sheet>;
 }
