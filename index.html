@@ -92,19 +92,20 @@ const IcChevD  =Ic('<polyline points="6 9 12 15 18 9"/>');
 
 /* ===== SHARED UI ===== */
 function GlassBtn({onClick,children,danger,style={}}){
-  const{T}=useT();
+  const{T,ui}=useT();
   const bg=danger?'rgba(255,59,48,.1)':'rgba(120,120,128,.1)';
   const col=danger?'#ff3b30':T.ctrlTxt;
-  return <button onClick={onClick} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:6,padding:'7px 13px',borderRadius:11,border:'0.5px solid '+(danger?'rgba(255,59,48,.22)':T.sep),background:bg,backdropFilter:BL,WebkitBackdropFilter:BL,color:col,fontSize:13,fontWeight:600,cursor:'pointer',transition:'all .18s',...style}}>{children}</button>;
+  return <button onClick={onClick} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:6,padding:ui.isPhone?'9px 15px':'7px 13px',borderRadius:ui.isPhone?13:11,border:'0.5px solid '+(danger?'rgba(255,59,48,.22)':T.sep),background:bg,backdropFilter:BL,WebkitBackdropFilter:BL,color:col,fontSize:ui.isPhone?15:13,fontWeight:600,cursor:'pointer',transition:'all .18s',...style}}>{children}</button>;
 }
 function Pill({onClick,active,children,style={}}){
-  const{T}=useT();
-  return <button onClick={onClick} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'7px 13px',borderRadius:22,border:'0.5px solid '+(active?'transparent':T.sep),background:active?T.pill:'rgba(120,120,128,.1)',backdropFilter:BL,WebkitBackdropFilter:BL,color:active?T.pillTxt:T.ctrlTxt,fontSize:13,fontWeight:600,cursor:'pointer',transition:'all .2s',flexShrink:0,...style}}>{children}</button>;
+  const{T,ui}=useT();
+  return <button onClick={onClick} style={{display:'inline-flex',alignItems:'center',gap:6,padding:ui.isPhone?'9px 15px':'7px 13px',borderRadius:ui.isPhone?24:22,border:'0.5px solid '+(active?'transparent':T.sep),background:active?T.pill:'rgba(120,120,128,.1)',backdropFilter:BL,WebkitBackdropFilter:BL,color:active?T.pillTxt:T.ctrlTxt,fontSize:ui.isPhone?15:13,fontWeight:600,cursor:'pointer',transition:'all .2s',flexShrink:0,...style}}>{children}</button>;
 }
 function PlusBtn({onClick,active}){
-  const{T}=useT();
-  return <button onClick={onClick} style={{width:34,height:34,borderRadius:10,border:'0.5px solid '+T.sep,background:active?'rgba(120,120,128,.1)':T.pill,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',backdropFilter:BL,WebkitBackdropFilter:BL,transition:'all .18s',flexShrink:0}}>
-    {active?<IcX c={T.ctrlTxt} s={16} sw={2}/>:<IcPlus c={T.pillTxt} s={16} sw={2}/>}
+  const{T,ui}=useT();
+  const size=ui.isPhone?40:34;
+  return <button onClick={onClick} style={{width:size,height:size,borderRadius:ui.isPhone?12:10,border:'0.5px solid '+T.sep,background:active?'rgba(120,120,128,.1)':T.pill,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',backdropFilter:BL,WebkitBackdropFilter:BL,transition:'all .18s',flexShrink:0}}>
+    {active?<IcX c={T.ctrlTxt} s={ui.isPhone?18:16} sw={2}/>:<IcPlus c={T.pillTxt} s={ui.isPhone?18:16} sw={2}/>}
   </button>;
 }
 function Swatches({value,onChange}){
@@ -115,28 +116,28 @@ function Swatches({value,onChange}){
   </div>;
 }
 function Sheet({onClose,children}){
-  const{T}=useT();
+  const{T,ui}=useT();
   return <div onClick={e=>{if(e.target===e.currentTarget)onClose();}} style={{position:'fixed',inset:0,zIndex:200,background:'rgba(0,0,0,.42)',display:'flex',alignItems:'flex-end',justifyContent:'center',backdropFilter:'blur(4px)'}}>
-    <div style={{background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:'24px 24px 0 0',width:'100%',maxWidth:600,border:'0.5px solid '+T.sep,animation:'slideUp .26s cubic-bezier(.32,1,.64,1)',maxHeight:'88vh',display:'flex',flexDirection:'column'}}>
+    <div style={{background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:'24px 24px 0 0',width:'100%',maxWidth:ui.isPhone?'100%':600,border:'0.5px solid '+T.sep,animation:'slideUp .26s cubic-bezier(.32,1,.64,1)',maxHeight:'88vh',display:'flex',flexDirection:'column'}}>
       <div style={{padding:'12px 0 0',display:'flex',justifyContent:'center',flexShrink:0}}><div style={{width:36,height:4,borderRadius:2,background:'rgba(120,120,128,.3)'}}/></div>
-      <div style={{overflowY:'auto',padding:'14px 20px 36px',flex:1}}>{children}</div>
+      <div style={{overflowY:'auto',padding:ui.isPhone?'16px 16px 34px':'14px 20px 36px',flex:1}}>{children}</div>
     </div>
   </div>;
 }
-function IaStyle(T){return {width:'100%',border:'0.5px solid '+T.ib,borderRadius:14,padding:'11px 14px',background:'rgba(120,120,128,.08)',color:T.text,outline:'none',resize:'none',lineHeight:1.5,fontFamily:'inherit'};}
+function IaStyle(T,ui){return {width:'100%',border:'0.5px solid '+T.ib,borderRadius:ui.isPhone?16:14,padding:ui.isPhone?'13px 16px':'11px 14px',background:'rgba(120,120,128,.08)',color:T.text,outline:'none',resize:'none',lineHeight:1.5,fontFamily:'inherit'};}
 function SectionLabel({children}){
-  const{T}=useT();
-  return <div style={{fontSize:11,fontWeight:700,letterSpacing:1.8,color:T.muted,textTransform:'uppercase',marginBottom:11}}>{children}</div>;
+  const{T,ui}=useT();
+  return <div style={{fontSize:ui.isPhone?12:11,fontWeight:700,letterSpacing:1.8,color:T.muted,textTransform:'uppercase',marginBottom:11}}>{children}</div>;
 }
 
 /* ===== EDIT TASK SHEET ===== */
 function EditTaskSheet({task,onSave,onDelete,onToHabit,onClose}){
-  const{T}=useT();
+  const{T,ui}=useT();
   const[text,setText]=useState(task.text);
   const[notes,setNotes]=useState(task.notes||'');
   const[recur,setRecur]=useState(task.recur||'none');
   const[ci,setCi]=useState(task.colorIdx??0);
-  const ia=IaStyle(T);
+  const ia=IaStyle(T,ui);
   return <Sheet onClose={onClose}>
     <SectionLabel>Задача</SectionLabel>
     <textarea value={text} onChange={e=>setText(e.target.value)} style={{...ia,minHeight:52,fontSize:17,fontWeight:600,marginBottom:10}}/>
@@ -147,8 +148,8 @@ function EditTaskSheet({task,onSave,onDelete,onToHabit,onClose}){
     <div style={{marginBottom:20}}><Swatches value={ci} onChange={setCi}/></div>
     <button onClick={()=>{if(text.trim())onSave(text.trim(),notes,recur,ci);}} style={{width:'100%',padding:13,borderRadius:14,border:'none',background:T.pill,color:T.pillTxt,fontSize:16,fontWeight:600,cursor:'pointer',marginBottom:11}}>Сохранить</button>
     <div style={{display:'flex',gap:8,alignItems:'stretch'}}>
-      <GlassBtn onClick={onToHabit} style={{flex:1,padding:12,minWidth:0,whiteSpace:'nowrap'}}><IcLeaf c="#68c4a0" s={15}/> В привычки</GlassBtn>
-      <GlassBtn onClick={onDelete} danger style={{flex:1,padding:12,minWidth:0,whiteSpace:'nowrap'}}><IcTrash c="#ff3b30" s={15}/> Удалить</GlassBtn>
+      <GlassBtn onClick={onToHabit} style={{flex:1,padding:12,minWidth:0,whiteSpace:'nowrap'}}><IcLeaf c="#68c4a0" s={ui.isPhone?17:15}/> В привычки</GlassBtn>
+      <GlassBtn onClick={onDelete} danger style={{flex:1,padding:12,minWidth:0,whiteSpace:'nowrap'}}><IcTrash c="#ff3b30" s={ui.isPhone?17:15}/> Удалить</GlassBtn>
     </div>
   </Sheet>;
 }
@@ -368,7 +369,7 @@ function PomodoroWidget({habit,date,p,onDone,small=false}){
 }
 
 function EditHabitSheet({habit,onSave,onDelete,onCalendar,onClose,showCal=false}){
-  const{T}=useT();
+  const{T,ui}=useT();
   const[text,setText]=useState(habit.text);
   const[notes,setNotes]=useState(habit.notes||'');
   const[ci,setCi]=useState(habit.colorIdx??0);
@@ -379,7 +380,7 @@ function EditHabitSheet({habit,onSave,onDelete,onCalendar,onClose,showCal=false}
   const[wBreak,setWBreak]=useState(habit.widget?.breakMin||5);
   const[wSess,setWSess]=useState(habit.widget?.sessions||4);
   const[wAuto,setWAuto]=useState(habit.widget?.autoComplete!==false);
-  const ia=IaStyle(T);
+  const ia=IaStyle(T,ui);
   function buildWidget(){
     if(!wType)return null;
     if(wType==='counter')return{type:'counter',unit:wUnit,goal:wGoal,autoComplete:wAuto};
@@ -718,7 +719,7 @@ function FolderIcon({color,size=22}){
 }
 
 function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDark}){
-  const{T}=useT();
+  const{T,ui}=useT();
   const P=dark?PD:PL;
   const pof=n=>P[Math.min(Math.max(n||0,0),P.length-1)];
   const[recur,setRecur]=useState('none');
@@ -789,7 +790,7 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
   return <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
     {edit&&<EditTaskSheet task={edit} onSave={(t,n,r,c)=>saveEdit(edit.id,t,n,r,c)} onDelete={()=>del(edit.id)} onToHabit={()=>{convertToHabit(edit.id);setEdit(null);}} onClose={()=>setEdit(null)}/>}
     {/* Header */}
-    <div style={{flexShrink:0,padding:'18px 0 12px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+    <div style={{flexShrink:0,padding:ui.isPhone?'20px 0 14px':'18px 0 12px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
       <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0,flex:1}}>
         {openFolderId&&<button onClick={()=>setOpenFolderId(null)} style={{width:36,height:36,borderRadius:11,border:'0.5px solid '+T.sep,background:T.ctrl,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,backdropFilter:BL,WebkitBackdropFilter:BL}}>
           <IcChevL c={T.ctrlTxt} s={18} sw={2}/>
@@ -797,9 +798,9 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
         <div style={{minWidth:0}}>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             {openFolder&&<FolderIcon color={P[openFolder.colorIdx||0].dot} size={22}/>}
-            <span style={{fontSize:26,fontWeight:700,letterSpacing:-.5,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{openFolder?openFolder.name:'Дела'}</span>
+            <span style={{fontSize:ui.isPhone?30:26,fontWeight:700,letterSpacing:-.5,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{openFolder?openFolder.name:'Дела'}</span>
           </div>
-          <div style={{fontSize:13,color:T.muted,fontWeight:500,marginTop:2}}>{undone.length} осталось{openFolder?' В· колода':done.length>0?' В· '+done.length+' скрыто':''}</div>
+          <div style={{fontSize:ui.isPhone?14:13,color:T.muted,fontWeight:500,marginTop:2}}>{undone.length} осталось{openFolder?' В· колода':done.length>0?' В· '+done.length+' скрыто':''}</div>
         </div>
       </div>
       <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
@@ -809,8 +810,8 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
           {listView?<IcStack c={T.pillTxt} s={14}/>:<IcList c={T.ctrlTxt} s={14}/>}
           {listView?'Стопка':'Список'}
         </Pill>
-        <button onClick={onToggleDark} style={{width:34,height:34,borderRadius:10,border:'0.5px solid '+T.sep,background:T.ctrl,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:BL,WebkitBackdropFilter:BL,flexShrink:0}}>
-          {dark?<IcSun c={T.ctrlTxt} s={16} sw={1.8}/>:<IcMoon c={T.ctrlTxt} s={16} sw={1.8}/>}
+        <button onClick={onToggleDark} style={{width:ui.isPhone?40:34,height:ui.isPhone?40:34,borderRadius:ui.isPhone?12:10,border:'0.5px solid '+T.sep,background:T.ctrl,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:BL,WebkitBackdropFilter:BL,flexShrink:0}}>
+          {dark?<IcSun c={T.ctrlTxt} s={ui.isPhone?18:16} sw={1.8}/>:<IcMoon c={T.ctrlTxt} s={ui.isPhone?18:16} sw={1.8}/>}
         </button>
         <PlusBtn onClick={()=>setAdding(v=>!v)} active={adding}/>
       </div>
@@ -1191,7 +1192,7 @@ function HabitCardsList({habits,setHabits,tday,d30,toggleDay,setDayState,setDayV
 
 /* ===== TAB 2: HABITS ===== */
 function HabitsTab({habits,setHabits,dark,onToggleDark}){
-  const{T}=useT();
+  const{T,ui}=useT();
   const P=dark?PD:PL;
   const pof=n=>P[Math.min(Math.max(n||0,0),P.length-1)];
   const d90=mkDates(90);
@@ -1263,18 +1264,18 @@ function HabitsTab({habits,setHabits,dark,onToggleDark}){
     {calH&&<CalModal habit={calH} onClose={()=>setCalH(null)} onToggle={toggleDay}/>}
     {editH&&<EditHabitSheet habit={editH} showCal={!!editH._showCal} onSave={(t,n,c,w)=>saveH(editH.id,t,n,c,w)} onDelete={()=>del(editH.id)} onCalendar={()=>{setCalH(editH);setEditH(null);}} onClose={()=>setEditH(null)}/>}
     {/* Header */}
-    <div style={{flexShrink:0,padding:'18px 0 12px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+    <div style={{flexShrink:0,padding:ui.isPhone?'20px 0 14px':'18px 0 12px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
       <div>
-        <div style={{fontSize:26,fontWeight:700,letterSpacing:-.5,color:T.text}}>Привычки</div>
-        <div style={{fontSize:13,color:T.muted,fontWeight:500,marginTop:2}}>{donT.length}/{habits.length} сегодня</div>
+        <div style={{fontSize:ui.isPhone?30:26,fontWeight:700,letterSpacing:-.5,color:T.text}}>Привычки</div>
+        <div style={{fontSize:ui.isPhone?14:13,color:T.muted,fontWeight:500,marginTop:2}}>{donT.length}/{habits.length} сегодня</div>
       </div>
       <div style={{display:'flex',gap:6,alignItems:'center'}}>
         <Pill onClick={()=>setMode(m=>m==='stack'?'cards':'stack')} active={mode==='cards'}>
           {mode==='stack'?<IcList c={T.ctrlTxt} s={14}/>:<IcStack c={T.pillTxt} s={14}/>}
           {mode==='stack'?'Список':'Стопка'}
         </Pill>
-        <button onClick={onToggleDark} style={{width:34,height:34,borderRadius:10,border:'0.5px solid '+T.sep,background:T.ctrl,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:BL,WebkitBackdropFilter:BL,flexShrink:0}}>
-          {dark?<IcSun c={T.ctrlTxt} s={16} sw={1.8}/>:<IcMoon c={T.ctrlTxt} s={16} sw={1.8}/>}
+        <button onClick={onToggleDark} style={{width:ui.isPhone?40:34,height:ui.isPhone?40:34,borderRadius:ui.isPhone?12:10,border:'0.5px solid '+T.sep,background:T.ctrl,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:BL,WebkitBackdropFilter:BL,flexShrink:0}}>
+          {dark?<IcSun c={T.ctrlTxt} s={ui.isPhone?18:16} sw={1.8}/>:<IcMoon c={T.ctrlTxt} s={ui.isPhone?18:16} sw={1.8}/>}
         </button>
         <PlusBtn onClick={()=>setAdding(v=>!v)} active={adding}/>
       </div>
@@ -1329,7 +1330,7 @@ function HabitsTab({habits,setHabits,dark,onToggleDark}){
 
 /* ===== TAB 3: SR ===== */
 function SRTab({dark,onToggleDark}){
-  const{T}=useT();
+  const{T,ui}=useT();
   const P=dark?PD:PL;
   const pof=n=>P[Math.min(Math.max(n||0,0),P.length-1)];
   const[cards,setCards]=useState(()=>ld('sr9',[]));
@@ -1364,14 +1365,14 @@ function SRTab({dark,onToggleDark}){
   const drag=!!stRef.current&&!fly;
 
   return <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
-    <div style={{flexShrink:0,padding:'18px 0 12px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+    <div style={{flexShrink:0,padding:ui.isPhone?'20px 0 14px':'18px 0 12px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
       <div>
-        <div style={{fontSize:26,fontWeight:700,letterSpacing:-.5,color:T.text}}>Повторение</div>
-        <div style={{fontSize:13,color:T.muted,fontWeight:500,marginTop:2}}>{due.length} к повторению · {cards.length} всего</div>
+        <div style={{fontSize:ui.isPhone?30:26,fontWeight:700,letterSpacing:-.5,color:T.text}}>Повторение</div>
+        <div style={{fontSize:ui.isPhone?14:13,color:T.muted,fontWeight:500,marginTop:2}}>{due.length} к повторению · {cards.length} всего</div>
       </div>
       <div style={{display:'flex',gap:6,alignItems:'center'}}>
-        <button onClick={onToggleDark} style={{width:34,height:34,borderRadius:10,border:'0.5px solid '+T.sep,background:T.ctrl,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:BL,WebkitBackdropFilter:BL,flexShrink:0}}>
-          {dark?<IcSun c={T.ctrlTxt} s={16} sw={1.8}/>:<IcMoon c={T.ctrlTxt} s={16} sw={1.8}/>}
+        <button onClick={onToggleDark} style={{width:ui.isPhone?40:34,height:ui.isPhone?40:34,borderRadius:ui.isPhone?12:10,border:'0.5px solid '+T.sep,background:T.ctrl,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:BL,WebkitBackdropFilter:BL,flexShrink:0}}>
+          {dark?<IcSun c={T.ctrlTxt} s={ui.isPhone?18:16} sw={1.8}/>:<IcMoon c={T.ctrlTxt} s={ui.isPhone?18:16} sw={1.8}/>}
         </button>
         <PlusBtn onClick={()=>setAdding(v=>!v)} active={adding}/>
       </div>
@@ -1580,10 +1581,9 @@ const TABS=[
 
 function App(){
   const[tab,setTab]=useState(0);
-  const[prevTab,setPrevTab]=useState(0);
-  const[dir,setDir]=useState('');
   const[onboarding,setOnboarding]=useState(()=>!localStorage.getItem('onb2'));
   const[dark,setDark]=useState(()=>{const s=localStorage.getItem('dm');if(s!=null)return s==='1';return window.matchMedia('(prefers-color-scheme: dark)').matches;});
+  const[vw,setVw]=useState(()=>window.innerWidth);
   const[tasks,setTasks]=useState(()=>ld('tk9',[]));
   const[lists,setLists]=useState(()=>ld('tl9',[]));
   const[habits,setHabits]=useState(()=>{const raw=ld('hb9',[]);const d90=mkDates(90);return raw.map(h=>ensDays(h,d90));});
@@ -1592,6 +1592,11 @@ function App(){
   useEffect(()=>{sv('tl9',lists);},[lists]);
   useEffect(()=>{sv('hb9',habits);},[habits]);
   useEffect(()=>{localStorage.setItem('dm',dark?'1':'0');document.body.style.background=dark?'#000':'#f2f2f7';},[dark]);
+  useEffect(()=>{
+    const onResize=()=>setVw(window.innerWidth);
+    window.addEventListener('resize',onResize);
+    return()=>window.removeEventListener('resize',onResize);
+  },[]);
 
   // в”Ђв”Ђ Midnight reset в”Ђв”Ђ
   // Logic:
@@ -1659,10 +1664,7 @@ function App(){
 
   function go(id){
     if(id===tab)return;
-    setPrevTab(tab);
-    setDir(id>tab?'sl':'sr');
     setTab(id);
-    setTimeout(()=>setDir(''),350);
   }
   function convertToHabit(id){
     const task=tasks.find(t=>t.id===id);if(!task)return;
@@ -1673,17 +1675,18 @@ function App(){
   }
 
   const T=dark?DT:LT;
-  return <Cx.Provider value={{dark,T}}>
+  const ui={isPhone:vw<=520,sidePad:vw<=520?10:16};
+  return <Cx.Provider value={{dark,T,ui}}>
     <div style={{height:'100dvh',display:'flex',flexDirection:'column',background:T.bg,overflow:'hidden',transition:'background .3s',color:T.text}}>
       {onboarding&&<Onboarding onDone={()=>{localStorage.setItem('onb2','1');setOnboarding(false);}}/>}
-      <div style={{flex:1,overflow:'hidden',maxWidth:600,width:'100%',margin:'0 auto',padding:'0 16px',position:'relative'}}>
+      <div style={{flex:1,overflow:'hidden',maxWidth:ui.isPhone?'100%':600,width:'100%',margin:'0 auto',padding:'0 '+ui.sidePad+'px',position:'relative'}}>
         {/* All tabs always mounted вЂ” state preserved. Slide between them via CSS. */}
         {[0,1,2].map(tid=>{
           const active=tid===tab;
           // inactive tabs sit to the left or right depending on their id vs active tab
           const offset=active?0:(tid<tab?-100:100);
           return <div key={tid} style={{
-            position:'absolute',inset:0,padding:'0 16px',
+            position:'absolute',inset:0,padding:'0 '+ui.sidePad+'px',
             display:'flex',flexDirection:'column',
             opacity:active?1:0,
             pointerEvents:active?'auto':'none',
@@ -1698,13 +1701,13 @@ function App(){
       </div>
       {/* Tab bar - 3 items only */}
       <div style={{flexShrink:0,background:T.tb,backdropFilter:BL,WebkitBackdropFilter:BL,borderTop:'0.5px solid '+T.sep}}>
-        <div style={{maxWidth:600,margin:'0 auto',display:'flex',alignItems:'center',padding:'8px 12px 10px'}}>
+        <div style={{maxWidth:ui.isPhone?'100%':600,margin:'0 auto',display:'flex',alignItems:'center',padding:ui.isPhone?'10px 8px 12px':'8px 12px 10px'}}>
           <div style={{flex:1,display:'flex',gap:3,background:dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.04)',borderRadius:16,padding:3}}>
             {TABS.map(t=>{
               const act=tab===t.id;
-              return <button key={t.id} onClick={()=>go(t.id)} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:3,padding:'7px 0 6px',borderRadius:12,border:'none',cursor:'pointer',background:act?T.card:'transparent',boxShadow:act?'0 1px 6px '+T.sh:'none',transition:'all .22s cubic-bezier(.34,1.2,.64,1)',color:act?T.ton:T.toff}}>
-                <t.Icon c={act?T.ton:T.toff} s={20}/>
-                <span style={{fontSize:10,fontWeight:act?700:500,letterSpacing:.1}}>{t.l}</span>
+              return <button key={t.id} onClick={()=>go(t.id)} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:ui.isPhone?4:3,padding:ui.isPhone?'9px 0 8px':'7px 0 6px',borderRadius:12,border:'none',cursor:'pointer',background:act?T.card:'transparent',boxShadow:act?'0 1px 6px '+T.sh:'none',transition:'all .22s cubic-bezier(.34,1.2,.64,1)',color:act?T.ton:T.toff}}>
+                <t.Icon c={act?T.ton:T.toff} s={ui.isPhone?22:20}/>
+                <span style={{fontSize:ui.isPhone?11:10,fontWeight:act?700:500,letterSpacing:.1}}>{t.l}</span>
               </button>;
             })}
           </div>
