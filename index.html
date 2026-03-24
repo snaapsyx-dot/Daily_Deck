@@ -47,21 +47,21 @@ const LT={bg:'#f2f2f7',card:'#fff',card2:'rgba(0,0,0,.05)',text:'#1c1c1e',sub:'#
 const DT={bg:'#000',card:'#1c1c1e',card2:'rgba(255,255,255,.07)',text:'#fff',sub:'rgba(235,235,245,.55)',muted:'#48484a',sep:'rgba(255,255,255,.1)',ctrl:'rgba(255,255,255,.1)',ctrlTxt:'rgba(255,255,255,.8)',pill:'#fff',pillTxt:'#000',glass:'rgba(28,28,30,.82)',tb:'rgba(18,18,18,.94)',ton:'#fff',toff:'#48484a',sh:'rgba(0,0,0,.4)',ib:'rgba(255,255,255,.18)'};
 const PL=[{bg:'#ede9ff',text:'#3d2f80',sub:'#8b7fc0',dot:'#9b8fcc'},{bg:'#d9f5ec',text:'#1a5c42',sub:'#4d9e7e',dot:'#68c4a0'},{bg:'#fde8d8',text:'#7a3614',sub:'#c07050',dot:'#e8906a'},{bg:'#fef5cc',text:'#5c4a00',sub:'#a08830',dot:'#d4b84a'},{bg:'#daeeff',text:'#0b4275',sub:'#4a82b8',dot:'#72aad8'},{bg:'#fce4ef',text:'#7a1a40',sub:'#c0507a',dot:'#e07aaa'}];
 const PD=[{bg:'#2a2244',text:'#c4b8f8',sub:'#9b8fcc',dot:'#b0a4e8'},{bg:'#182e24',text:'#7deec0',sub:'#4d9e7e',dot:'#68c4a0'},{bg:'#361c10',text:'#f0b090',sub:'#b06848',dot:'#e08060'},{bg:'#302600',text:'#f0d070',sub:'#987820',dot:'#c8a030'},{bg:'#0c1e32',text:'#90c8f0',sub:'#4a82b8',dot:'#72aad8'},{bg:'#340c1e',text:'#f09ab8',sub:'#b04870',dot:'#e078a0'}];
-const CLABELS=['Р›Р°РІР°РЅРґР°','РњСЏС‚Р°','РџРµСЂСЃРёРє','Р–С‘Р»С‚С‹Р№','Р“РѕР»СѓР±РѕР№','Р РѕР·Р°'];
+const CLABELS=['Лаванда','Мята','Персик','Жёлтый','Голубой','Роза'];
 const Cx=createContext(null);
 const useT=()=>useContext(Cx);
 
 /* ===== CONSTANTS ===== */
-const SR=[{l:'1 РјРёРЅ',ms:6e4},{l:'10 РјРёРЅ',ms:6e5},{l:'1 РґРµРЅСЊ',ms:864e5},{l:'1 РЅРµРґ',ms:6048e5},{l:'1 РјРµСЃ',ms:2592e6},{l:'6 РјРµСЃ',ms:15552e6}];
-const RECURS=[{v:'none',l:'Р‘РµР· РїРѕРІС‚РѕСЂР°'},{v:'daily',l:'РљР°Р¶РґС‹Р№ РґРµРЅСЊ'},{v:'weekly',l:'РљР°Р¶РґСѓСЋ РЅРµРґ.'},{v:'monthly',l:'РљР°Р¶РґС‹Р№ РјРµСЃ.'},{v:'yearly',l:'РљР°Р¶РґС‹Р№ РіРѕРґ'}];
-const WD=['Р’СЃ','РџРЅ','Р’С‚','РЎСЂ','Р§С‚','РџС‚','РЎР±'];
-const MOS=['РЇРЅРІ','Р¤РµРІ','РњР°СЂ','РђРїСЂ','РњР°Р№','РСЋРЅ','РСЋР»','РђРІРі','РЎРµРЅ','РћРєС‚','РќРѕСЏ','Р”РµРє'];
-const MOF=['РЇРЅРІР°СЂСЊ','Р¤РµРІСЂР°Р»СЊ','РњР°СЂС‚','РђРїСЂРµР»СЊ','РњР°Р№','РСЋРЅСЊ','РСЋР»СЊ','РђРІРіСѓСЃС‚','РЎРµРЅС‚СЏР±СЂСЊ','РћРєС‚СЏР±СЂСЊ','РќРѕСЏР±СЂСЊ','Р”РµРєР°Р±СЂСЊ'];
+const SR=[{l:'1 мин',ms:6e4},{l:'10 мин',ms:6e5},{l:'1 день',ms:864e5},{l:'1 нед',ms:6048e5},{l:'1 мес',ms:2592e6},{l:'6 мес',ms:15552e6}];
+const RECURS=[{v:'none',l:'Без повтора'},{v:'daily',l:'Каждый день'},{v:'weekly',l:'Каждую нед.'},{v:'monthly',l:'Каждый мес.'},{v:'yearly',l:'Каждый год'}];
+const WD=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+const MOS=['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+const MOF=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const mkDates=n=>Array.from({length:n},(_,i)=>{const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-(n-1-i));return d.toDateString();});
 const ensDays=(h,dates)=>{const ex=new Set((h.days||[]).map(d=>d.date));const m=[...(h.days||[])];dates.forEach(d=>{if(!ex.has(d))m.push({date:d,state:null});});const k=new Set(dates);return{...h,days:m.filter(d=>k.has(d.date))};};
 const ld=(k,d)=>{try{const v=localStorage.getItem(k);return v!=null?JSON.parse(v):d;}catch{return d;}};
 const sv=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}};
-const fmtMs=ms=>{if(ms<=0)return'РЎРµР№С‡Р°СЃ';const m=Math.round(ms/6e4);if(m<60)return m+' РјРёРЅ';const h=Math.round(m/60);if(h<24)return h+' С‡';return Math.round(h/24)+' Рґ';};
+const fmtMs=ms=>{if(ms<=0)return'Сейчас';const m=Math.round(ms/6e4);if(m<60)return m+' мин';const h=Math.round(m/60);if(h<24)return h+' ч';return Math.round(h/24)+' д';};
 const tod=()=>new Date().toDateString();
 const isInteractiveEl=el=>!!(el&&(el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.tagName==='BUTTON'||el.tagName==='SELECT'));
 
@@ -138,17 +138,17 @@ function EditTaskSheet({task,onSave,onDelete,onToHabit,onClose}){
   const[ci,setCi]=useState(task.colorIdx??0);
   const ia=IaStyle(T);
   return <Sheet onClose={onClose}>
-    <SectionLabel>Р—Р°РґР°С‡Р°</SectionLabel>
+    <SectionLabel>Задача</SectionLabel>
     <textarea value={text} onChange={e=>setText(e.target.value)} style={{...ia,minHeight:52,fontSize:17,fontWeight:600,marginBottom:10}}/>
-    <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="РџСЂРёРјРµС‡Р°РЅРёРµ..." style={{...ia,minHeight:48,fontSize:14,marginBottom:14}}/>
-    <SectionLabel>РџРѕРІС‚РѕСЂ</SectionLabel>
+    <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Примечание..." style={{...ia,minHeight:48,fontSize:14,marginBottom:14}}/>
+    <SectionLabel>Повтор</SectionLabel>
     <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:16}}>{RECURS.map(r=><GlassBtn key={r.v} onClick={()=>setRecur(r.v)} style={recur===r.v?{background:T.pill,color:T.pillTxt}:{}}>{r.l}</GlassBtn>)}</div>
-    <SectionLabel>Р¦РІРµС‚</SectionLabel>
+    <SectionLabel>Цвет</SectionLabel>
     <div style={{marginBottom:20}}><Swatches value={ci} onChange={setCi}/></div>
-    <button onClick={()=>{if(text.trim())onSave(text.trim(),notes,recur,ci);}} style={{width:'100%',padding:13,borderRadius:14,border:'none',background:T.pill,color:T.pillTxt,fontSize:16,fontWeight:600,cursor:'pointer',marginBottom:11}}>РЎРѕС…СЂР°РЅРёС‚СЊ</button>
+    <button onClick={()=>{if(text.trim())onSave(text.trim(),notes,recur,ci);}} style={{width:'100%',padding:13,borderRadius:14,border:'none',background:T.pill,color:T.pillTxt,fontSize:16,fontWeight:600,cursor:'pointer',marginBottom:11}}>Сохранить</button>
     <div style={{display:'flex',gap:8}}>
-      <GlassBtn onClick={onToHabit} style={{flex:1,padding:12}}><IcLeaf c="#68c4a0" s={15}/> Р’ РїСЂРёРІС‹С‡РєРё</GlassBtn>
-      <GlassBtn onClick={onDelete} danger style={{flex:1,padding:12}}><IcTrash c="#ff3b30" s={15}/> РЈРґР°Р»РёС‚СЊ</GlassBtn>
+      <GlassBtn onClick={onToHabit} style={{flex:1,padding:12}}><IcLeaf c="#68c4a0" s={15}/> Р’ привычки</GlassBtn>
+      <GlassBtn onClick={onDelete} danger style={{flex:1,padding:12}}><IcTrash c="#ff3b30" s={15}/> Удалить</GlassBtn>
     </div>
   </Sheet>;
 }
@@ -171,11 +171,11 @@ function Sparkline({values,color,width=120,height=32}){
 
 function MoodWidget({habit,date,p,onValue,small=false}){
   const MOODS=[
-    {v:1,e:'рџћ',l:'РџР»РѕС…Рѕ'},
-    {v:2,e:'рџђ',l:'РўР°Рє СЃРµР±Рµ'},
-    {v:3,e:'рџ™‚',l:'РќРѕСЂРј'},
-    {v:4,e:'рџЉ',l:'РҐРѕСЂРѕС€Рѕ'},
-    {v:5,e:'рџ¤©',l:'РћС‚Р»РёС‡РЅРѕ'},
+    {v:1,e:'☹',l:'Плохо'},
+    {v:2,e:'◔',l:'Так себе'},
+    {v:3,e:'○',l:'Норм'},
+    {v:4,e:'☺',l:'Хорошо'},
+    {v:5,e:'★',l:'Отлично'},
   ];
   const dayData=(habit.days||[]).find(d=>d.date===date);
   const val=dayData?.value||0;
@@ -216,7 +216,7 @@ function MoodWidget({habit,date,p,onValue,small=false}){
         </div>;
       })}
     </div>}
-    <div style={{fontSize:11,color:p.sub,opacity:.5}}>РЎРІР°Р№Рї в†’ С‡С‚РѕР±С‹ РѕС‚РјРµС‚РёС‚СЊ РІС‹РїРѕР»РЅРµРЅРЅС‹Рј</div>
+    <div style={{fontSize:11,color:p.sub,opacity:.5}}>Свайп → чтобы отметить выполненным</div>
   </div>;
 }
 
@@ -273,7 +273,7 @@ function CounterWidget({habit,date,p,onValue,small=false}){
         <input
           type="number" inputMode="decimal"
           value={inputVal}
-          placeholder="вЂ”"
+          placeholder="—"
           onChange={e=>setInputVal(e.target.value)}
           onBlur={e=>commit(e.target.value)}
           onKeyDown={e=>{if(e.key==='Enter'){e.target.blur();commit(e.target.value);}}}
@@ -283,7 +283,7 @@ function CounterWidget({habit,date,p,onValue,small=false}){
       </div>
       {goal>0&&<div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:3,width:160}}>
         <div style={{display:'flex',justifyContent:'space-between',width:'100%',fontSize:11,color:p.sub}}>
-          <span>0</span><span>С†РµР»СЊ: {goal} {unit}</span>
+          <span>0</span><span>цель: {goal} {unit}</span>
         </div>
         <div style={{height:4,width:'100%',background:'rgba(0,0,0,.15)',borderRadius:2}}>
           <div style={{width:(pct*100)+'%',height:'100%',background:p.dot,borderRadius:2,transition:'width .3s'}}/>
@@ -292,8 +292,8 @@ function CounterWidget({habit,date,p,onValue,small=false}){
     </div>
     {hasHistory&&<div style={{width:'100%',paddingTop:4}}>
       <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:p.sub,marginBottom:5}}>
-        <span>14 РґРЅРµР№</span>
-        <span>РјР°РєСЃ: {histMax}{unit&&' '+unit}</span>
+        <span>14 дней</span>
+        <span>макс: {histMax}{unit&&' '+unit}</span>
       </div>
       <div style={{display:'flex',alignItems:'flex-end',gap:2,height:36}}>
         {history.map((v,i)=>{
@@ -306,7 +306,7 @@ function CounterWidget({habit,date,p,onValue,small=false}){
         })}
       </div>
     </div>}
-    <div style={{fontSize:11,color:p.sub,opacity:.45}}>РЎРІР°Р№Рї в†’ С‡С‚РѕР±С‹ РѕС‚РјРµС‚РёС‚СЊ РІС‹РїРѕР»РЅРµРЅРЅС‹Рј</div>
+    <div style={{fontSize:11,color:p.sub,opacity:.45}}>Свайп → чтобы отметить выполненным</div>
   </div>;
 }
 
@@ -341,7 +341,7 @@ function PomodoroWidget({habit,date,p,onDone,small=false}){
     </svg>
     <div style={{minWidth:44}}>
       <div style={{fontSize:15,fontWeight:700,color:p.text,fontVariantNumeric:'tabular-nums'}}>{fmt(displaySec)}</div>
-      <div style={{fontSize:10,color:p.sub}}>{phase==='done'?'Р“РѕС‚РѕРІРѕ':phase==='break'?'РџРµСЂРµСЂС‹РІ':'РЎРµСЃСЃРёСЏ '+(sess+1)+'/'+maxSess}</div>
+      <div style={{fontSize:10,color:p.sub}}>{phase==='done'?'Готово':phase==='break'?'Перерыв':'Сессия '+(sess+1)+'/'+maxSess}</div>
     </div>
     {phase!=='done'&&<button onPointerDown={e=>e.stopPropagation()} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();toggle();}} onClick={e=>{e.stopPropagation();toggle();}} style={{width:32,height:32,borderRadius:10,background:p.dot,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',touchAction:'manipulation',WebkitTapHighlightColor:'transparent'}}>
       <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff">{running?<><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></>:<polygon points="5,3 19,12 5,21"/>}</svg>
@@ -356,12 +356,12 @@ function PomodoroWidget({habit,date,p,onDone,small=false}){
       </svg>
       <div style={{position:'absolute',textAlign:'center'}}>
         <div style={{fontSize:36,fontWeight:700,color:p.text,fontVariantNumeric:'tabular-nums',letterSpacing:'-1px'}}>{fmt(displaySec)}</div>
-        <div style={{fontSize:11,color:p.sub,marginTop:1}}>{phase==='done'?'рџЋ‰ Р“РѕС‚РѕРІРѕ!':phase==='break'?'РџРµСЂРµСЂС‹РІ':'СЃРµСЃСЃРёСЏ '+(sess+1)+'/'+maxSess}</div>
+        <div style={{fontSize:11,color:p.sub,marginTop:1}}>{phase==='done'?'Готово!':phase==='break'?'Перерыв':'сессия '+(sess+1)+'/'+maxSess}</div>
       </div>
     </div>
     <div style={{display:'flex',gap:8}}>
-      {phase!=='done'&&<button onPointerDown={e=>e.preventDefault()} onClick={toggle} style={{padding:'10px 22px',borderRadius:14,background:running?'rgba(255,255,255,.1)':p.dot,border:running?'1px solid rgba(255,255,255,.2)':'none',color:running?p.sub:'#fff',fontSize:15,fontWeight:600,cursor:'pointer',touchAction:'manipulation'}}>{running?'РџР°СѓР·Р°':'РЎС‚Р°СЂС‚'}</button>}
-      {(sess>0||phase!=='idle')&&<button onPointerDown={e=>e.preventDefault()} onClick={reset} style={{padding:'10px 16px',borderRadius:14,background:'rgba(255,255,255,.07)',border:'1px solid rgba(255,255,255,.12)',color:p.sub,fontSize:15,cursor:'pointer',touchAction:'manipulation'}}>в†є</button>}
+      {phase!=='done'&&<button onPointerDown={e=>e.preventDefault()} onClick={toggle} style={{padding:'10px 22px',borderRadius:14,background:running?'rgba(255,255,255,.1)':p.dot,border:running?'1px solid rgba(255,255,255,.2)':'none',color:running?p.sub:'#fff',fontSize:15,fontWeight:600,cursor:'pointer',touchAction:'manipulation'}}>{running?'Пауза':'Старт'}</button>}
+      {(sess>0||phase!=='idle')&&<button onPointerDown={e=>e.preventDefault()} onClick={reset} style={{padding:'10px 16px',borderRadius:14,background:'rgba(255,255,255,.07)',border:'1px solid rgba(255,255,255,.12)',color:p.sub,fontSize:15,cursor:'pointer',touchAction:'manipulation'}}>↻</button>}
     </div>
     <div style={{display:'flex',gap:6}}>{Array.from({length:maxSess},(_,i)=><div key={i} style={{width:8,height:8,borderRadius:'50%',background:i<sess?p.dot:'rgba(128,128,128,.2)',transition:'background .3s'}}/>)}</div>
   </div>;
@@ -389,43 +389,43 @@ function EditHabitSheet({habit,onSave,onDelete,onCalendar,onClose,showCal=false}
   }
   const inp={...ia,padding:'8px 12px',borderRadius:10,fontSize:14,marginBottom:8};
   return <Sheet onClose={onClose}>
-    <SectionLabel>РџСЂРёРІС‹С‡РєР°</SectionLabel>
+    <SectionLabel>Привычка</SectionLabel>
     <textarea value={text} onChange={e=>setText(e.target.value)} style={{...ia,minHeight:52,fontSize:17,fontWeight:600,marginBottom:10}}/>
-    <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="РџСЂРёРјРµС‡Р°РЅРёРµ..." style={{...ia,minHeight:48,fontSize:14,marginBottom:16}}/>
-    <SectionLabel>Р¦РІРµС‚</SectionLabel>
+    <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Примечание..." style={{...ia,minHeight:48,fontSize:14,marginBottom:16}}/>
+    <SectionLabel>Цвет</SectionLabel>
     <div style={{marginBottom:18}}><Swatches value={ci} onChange={setCi}/></div>
-    <SectionLabel>Р’РёРґР¶РµС‚</SectionLabel>
+    <SectionLabel>Виджет</SectionLabel>
     <div style={{display:'flex',gap:6,marginBottom:14,flexWrap:'wrap'}}>
-      {[{v:null,l:'Р‘РµР· РІРёРґР¶РµС‚Р°'},{v:'counter',l:'рџ“Љ РЎС‡С‘С‚С‡РёРє'},{v:'pomodoro',l:'рџЌ… РџРѕРјРѕРґРѕСЂРѕ'},{v:'mood',l:'рџЉ РќР°СЃС‚СЂРѕРµРЅРёРµ'}].map(opt=><button key={String(opt.v)} onClick={()=>setWType(opt.v)} style={{padding:'6px 12px',borderRadius:10,border:'0.5px solid '+T.sep,background:wType===opt.v?T.pill:'rgba(128,128,128,.08)',color:wType===opt.v?T.pillTxt:T.ctrlTxt,fontSize:13,fontWeight:600,cursor:'pointer'}}>{opt.l}</button>)}
+      {[{v:null,l:'Без виджета'},{v:'counter',l:'Счётчик'},{v:'pomodoro',l:'Помодоро'},{v:'mood',l:'Настроение'}].map(opt=><button key={String(opt.v)} onClick={()=>setWType(opt.v)} style={{padding:'6px 12px',borderRadius:10,border:'0.5px solid '+T.sep,background:wType===opt.v?T.pill:'rgba(128,128,128,.08)',color:wType===opt.v?T.pillTxt:T.ctrlTxt,fontSize:13,fontWeight:600,cursor:'pointer'}}>{opt.l}</button>)}
     </div>
     {wType==='counter'&&<div style={{marginBottom:14}}>
       <div style={{display:'flex',gap:8,marginBottom:8}}>
-        <input value={wUnit} onChange={e=>setWUnit(e.target.value)} placeholder="Р•РґРёРЅРёС†Р° (РєРі, СЂР°Р·, РјРёРЅ...)" style={{...inp,flex:1}}/>
-        <input value={wGoal||''} onChange={e=>setWGoal(Number(e.target.value)||0)} placeholder="Р¦РµР»СЊ" type="number" style={{...inp,width:80}}/>
+        <input value={wUnit} onChange={e=>setWUnit(e.target.value)} placeholder="Единица (кг, раз, мин...)" style={{...inp,flex:1}}/>
+        <input value={wGoal||''} onChange={e=>setWGoal(Number(e.target.value)||0)} placeholder="Цель" type="number" style={{...inp,width:80}}/>
       </div>
       <label style={{display:'flex',alignItems:'center',gap:8,fontSize:14,color:T.ctrlTxt,cursor:'pointer'}}>
-        <input type="checkbox" checked={wAuto} onChange={e=>setWAuto(e.target.checked)}/> РћС‚РјРµС‡Р°С‚СЊ РІС‹РїРѕР»РЅРµРЅРЅС‹Рј РїСЂРё Р·РЅР°С‡РµРЅРёРё &gt; 0
+        <input type="checkbox" checked={wAuto} onChange={e=>setWAuto(e.target.checked)}/> Отмечать выполненным при значении &gt; 0
       </label>
     </div>}
     {wType==='pomodoro'&&<div style={{marginBottom:14}}>
       <div style={{display:'flex',gap:8,marginBottom:8}}>
-        <div style={{flex:1}}><div style={{fontSize:11,color:T.muted,marginBottom:3}}>Р Р°Р±РѕС‚Р° (РјРёРЅ)</div><input value={wWork} onChange={e=>setWWork(Math.max(1,Number(e.target.value)||25))} type="number" style={inp}/></div>
-        <div style={{flex:1}}><div style={{fontSize:11,color:T.muted,marginBottom:3}}>РџРµСЂРµСЂС‹РІ (РјРёРЅ)</div><input value={wBreak} onChange={e=>setWBreak(Math.max(1,Number(e.target.value)||5))} type="number" style={inp}/></div>
-        <div style={{width:70}}><div style={{fontSize:11,color:T.muted,marginBottom:3}}>РЎРµСЃСЃРёР№</div><input value={wSess} onChange={e=>setWSess(Math.max(1,Number(e.target.value)||4))} type="number" style={inp}/></div>
+        <div style={{flex:1}}><div style={{fontSize:11,color:T.muted,marginBottom:3}}>Работа (мин)</div><input value={wWork} onChange={e=>setWWork(Math.max(1,Number(e.target.value)||25))} type="number" style={inp}/></div>
+        <div style={{flex:1}}><div style={{fontSize:11,color:T.muted,marginBottom:3}}>Перерыв (мин)</div><input value={wBreak} onChange={e=>setWBreak(Math.max(1,Number(e.target.value)||5))} type="number" style={inp}/></div>
+        <div style={{width:70}}><div style={{fontSize:11,color:T.muted,marginBottom:3}}>Сессий</div><input value={wSess} onChange={e=>setWSess(Math.max(1,Number(e.target.value)||4))} type="number" style={inp}/></div>
       </div>
       <label style={{display:'flex',alignItems:'center',gap:8,fontSize:14,color:T.ctrlTxt,cursor:'pointer'}}>
-        <input type="checkbox" checked={wAuto} onChange={e=>setWAuto(e.target.checked)}/> РћС‚РјРµС‡Р°С‚СЊ РІС‹РїРѕР»РЅРµРЅРЅС‹Рј РїРѕ Р·Р°РІРµСЂС€РµРЅРёРё
+        <input type="checkbox" checked={wAuto} onChange={e=>setWAuto(e.target.checked)}/> Отмечать выполненным по завершении
       </label>
     </div>}
-    <button onClick={()=>{if(text.trim())onSave(text.trim(),notes,ci,buildWidget());}} style={{width:'100%',padding:13,borderRadius:14,border:'none',background:T.pill,color:T.pillTxt,fontSize:16,fontWeight:600,cursor:'pointer',marginBottom:10}}>РЎРѕС…СЂР°РЅРёС‚СЊ</button>
+    <button onClick={()=>{if(text.trim())onSave(text.trim(),notes,ci,buildWidget());}} style={{width:'100%',padding:13,borderRadius:14,border:'none',background:T.pill,color:T.pillTxt,fontSize:16,fontWeight:600,cursor:'pointer',marginBottom:10}}>Сохранить</button>
     <div style={{display:'flex',gap:8}}>
-      {showCal&&<GlassBtn onClick={onCalendar} style={{flex:1,padding:12}}><IcCal c={T.ctrlTxt} s={15}/> РСЃС‚РѕСЂРёСЏ</GlassBtn>}
-      <GlassBtn onClick={onDelete} danger style={{flex:showCal?1:'100%',padding:12,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcTrash c="#ff3b30" s={15}/> РЈРґР°Р»РёС‚СЊ</GlassBtn>
+      {showCal&&<GlassBtn onClick={onCalendar} style={{flex:1,padding:12}}><IcCal c={T.ctrlTxt} s={15}/> История</GlassBtn>}
+      <GlassBtn onClick={onDelete} danger style={{flex:showCal?1:'100%',padding:12,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcTrash c="#ff3b30" s={15}/> Удалить</GlassBtn>
     </div>
   </Sheet>;
 }
 
-function TinderStack({items,onRight,onLeft,onUp,onTap,renderCard,shufflePhase,leftLabel='РџРѕР·Р¶Рµ',leftColor='#ff3b30'}){
+function TinderStack({items,onRight,onLeft,onUp,onTap,renderCard,shufflePhase,leftLabel='Позже',leftColor='#ff3b30'}){
   const cardRef=useRef(null);
   const[dx,setDx]=useState(0);
   const[dy,setDy]=useState(0);
@@ -530,7 +530,7 @@ function TinderStack({items,onRight,onLeft,onUp,onTap,renderCard,shufflePhase,le
           transition:fly||!stRef.current?'transform .34s cubic-bezier(.25,.46,.45,.94),box-shadow .15s':'box-shadow .15s',
         }}>
         {dx>30&&<div style={{position:'absolute',inset:0,borderRadius:28,background:'rgba(48,209,88,.1)',display:'flex',alignItems:'flex-start',justifyContent:'flex-end',padding:20,pointerEvents:'none',opacity:Math.min((dx-30)/60,1)}}>
-          <div style={{background:'#30d158',borderRadius:50,padding:'7px 14px',display:'flex',alignItems:'center',gap:6}}><IcCheck c="#fff" s={14} sw={2.5}/><span style={{color:'#fff',fontSize:13,fontWeight:700}}>Р“РѕС‚РѕРІРѕ</span></div>
+          <div style={{background:'#30d158',borderRadius:50,padding:'7px 14px',display:'flex',alignItems:'center',gap:6}}><IcCheck c="#fff" s={14} sw={2.5}/><span style={{color:'#fff',fontSize:13,fontWeight:700}}>Готово</span></div>
         </div>}
         {dx<-30&&<div style={{position:'absolute',inset:0,borderRadius:28,background:'rgba(255,59,48,.08)',display:'flex',alignItems:'flex-start',justifyContent:'flex-start',padding:20,pointerEvents:'none',opacity:Math.min((-dx-30)/60,1)}}>
           <div style={{background:leftColor,borderRadius:50,padding:'7px 14px',display:'flex',alignItems:'center',gap:6}}><IcX c="#fff" s={14} sw={2.5}/><span style={{color:'#fff',fontSize:13,fontWeight:700}}>{leftLabel}</span></div>
@@ -644,7 +644,7 @@ function TaskListsView({tasks,setTasks,lists,setLists,dark,T}){
       return <div key={list.id} style={{background:p.bg,borderRadius:22,marginBottom:12,overflow:'hidden',boxShadow:'0 4px 20px rgba(0,0,0,.07)'}}>
         {/* Deck picker вЂ” assign card to deck */}
     {moveCard&&<Sheet onClose={()=>setMoveCard(null)}>
-      <SectionLabel>РџРµСЂРµРјРµСЃС‚РёС‚СЊ РІ РєРѕР»РѕРґСѓ</SectionLabel>
+      <SectionLabel>Переместить в колоду</SectionLabel>
       <div style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:16,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{moveCard.text}</div>
       {lists.map(l=>{
         const lp=(dark?PD:PL)[l.colorIdx||0];
@@ -656,23 +656,23 @@ function TaskListsView({tasks,setTasks,lists,setLists,dark,T}){
         </div>;
       })}
       {moveCard.listId&&<GlassBtn onClick={()=>{setTasks(ts=>ts.map(t=>t.id===moveCard.id?{...t,listId:undefined}:t));setMoveCard(null);}} style={{width:'100%',marginTop:12,padding:12,justifyContent:'center',display:'flex',gap:6}}>
-        РЈР±СЂР°С‚СЊ РёР· РєРѕР»РѕРґС‹
+        Убрать из колоды
       </GlassBtn>}
-      {lists.length===0&&<div style={{color:T.muted,fontSize:14,textAlign:'center',paddingTop:16}}>РЎРЅР°С‡Р°Р»Р° СЃРѕР·РґР°Р№ РєРѕР»РѕРґСѓ РІ СЂРµР¶РёРјРµ РЎРїРёСЃРѕРє</div>}
+      {lists.length===0&&<div style={{color:T.muted,fontSize:14,textAlign:'center',paddingTop:16}}>Сначала создай колоду в режиме Список</div>}
     </Sheet>}
     {/* Header */}
         <div onClick={()=>setExpandedId(expanded?null:list.id)} style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',cursor:'pointer'}}>
           <div style={{width:10,height:10,borderRadius:'50%',background:p.dot,flexShrink:0}}/>
           <div style={{flex:1}}>
             <div style={{fontSize:16,fontWeight:700,color:p.text}}>{list.name}</div>
-            <div style={{fontSize:12,color:p.sub,marginTop:1}}>{done}/{listTasks.length} РІС‹РїРѕР»РЅРµРЅРѕ</div>
+            <div style={{fontSize:12,color:p.sub,marginTop:1}}>{done}/{listTasks.length} выполнено</div>
           </div>
           {/* Progress bar */}
           {listTasks.length>0&&<div style={{width:44,height:4,borderRadius:2,background:'rgba(0,0,0,.1)',overflow:'hidden'}}>
             <div style={{width:(done/listTasks.length*100)+'%',height:'100%',background:p.dot,borderRadius:2,transition:'width .3s'}}/>
           </div>}
-          <div style={{fontSize:12,color:p.sub,transform:'rotate('+(expanded?-90:0)+'deg)',transition:'transform .2s'}}>вЂє</div>
-          <button onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();if(window.confirm('РЈРґР°Р»РёС‚СЊ РєРѕР»РѕРґСѓ Рё РІСЃРµ Р·Р°РґР°С‡Рё?'))delList(list.id);}} style={{background:'none',border:'none',color:p.dot,opacity:.4,cursor:'pointer',fontSize:16,padding:'0 2px'}}>вњ•</button>
+          <div style={{fontSize:12,color:p.sub,transform:'rotate('+(expanded?-90:0)+'deg)',transition:'transform .2s'}}>›</div>
+          <button onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();if(window.confirm('Удалить колоду и все задачи?'))delList(list.id);}} style={{background:'none',border:'none',color:p.dot,opacity:.4,cursor:'pointer',fontSize:16,padding:'0 2px'}}>✕</button>
         </div>
         {/* Tasks */}
         {expanded&&<div style={{borderTop:'1px solid rgba(0,0,0,.06)',padding:'8px 16px 12px'}}>
@@ -680,33 +680,33 @@ function TaskListsView({tasks,setTasks,lists,setLists,dark,T}){
             <div onClick={()=>toggleTaskDone(task.id)} style={{width:22,height:22,borderRadius:'50%',flexShrink:0,cursor:'pointer',border:'2px solid '+(task.done?'transparent':p.dot),background:task.done?p.dot:'transparent',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .2s'}}>
               {task.done&&<IcCheck c="#fff" s={10} sw={2.5}/>}
             </div>
-            <div style={{flex:1,fontSize:15,fontWeight:500,color:p.text,textDecoration:task.done?'line-through':'none',opacity:task.done?0.5:1}}>{task.text}</div>
-            <button onClick={()=>delTask(task.id)} style={{background:'none',border:'none',color:p.dot,opacity:.35,cursor:'pointer',fontSize:14,padding:'0 2px'}}>вњ•</button>
+            <div style={{flex:1,fontSize:15,fontWeight:500,color:p.text,textDecoration:task.done?'line-through':'none',opacity:task.done?.5:1}}>{task.text}</div>
+            <button onClick={()=>delTask(task.id)} style={{background:'none',border:'none',color:p.dot,opacity:.35,cursor:'pointer',fontSize:14,padding:'0 2px'}}>✕</button>
           </div>)}
           {/* Add task to list */}
           {addingToList===list.id
             ?<div style={{display:'flex',gap:8,marginTop:10}}>
-                <input autoFocus value={newTaskText} onChange={e=>setNewTaskText(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')addTaskToList(list.id);if(e.key==='Escape'){setAddingToList(null);setNewTaskText('');}}} placeholder="РќРѕРІР°СЏ Р·Р°РґР°С‡Р°..." style={{flex:1,border:'none',borderBottom:'1px solid '+p.dot,outline:'none',background:'transparent',fontSize:15,color:p.text,padding:'4px 0'}}/>
-                <button onClick={()=>addTaskToList(list.id)} style={{background:p.dot,border:'none',borderRadius:9,padding:'5px 12px',color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer'}}>Р”РѕР±Р°РІРёС‚СЊ</button>
-                <button onClick={()=>{setAddingToList(null);setNewTaskText('');}} style={{background:'none',border:'none',color:p.sub,fontSize:18,cursor:'pointer'}}>вњ•</button>
+                <input autoFocus value={newTaskText} onChange={e=>setNewTaskText(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')addTaskToList(list.id);if(e.key==='Escape'){setAddingToList(null);setNewTaskText('');}}} placeholder="Новая задача..." style={{flex:1,border:'none',borderBottom:'1px solid '+p.dot,outline:'none',background:'transparent',fontSize:15,color:p.text,padding:'4px 0'}}/>
+                <button onClick={()=>addTaskToList(list.id)} style={{background:p.dot,border:'none',borderRadius:9,padding:'5px 12px',color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer'}}>Добавить</button>
+                <button onClick={()=>{setAddingToList(null);setNewTaskText('');}} style={{background:'none',border:'none',color:p.sub,fontSize:18,cursor:'pointer'}}>✕</button>
               </div>
-            :<button onClick={()=>setAddingToList(list.id)} style={{marginTop:10,background:'none',border:'none',color:p.sub,fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',gap:5,padding:0}}><IcPlus c={p.sub} s={14}/>Р”РѕР±Р°РІРёС‚СЊ Р·Р°РґР°С‡Сѓ</button>}
+            :<button onClick={()=>setAddingToList(list.id)} style={{marginTop:10,background:'none',border:'none',color:p.sub,fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',gap:5,padding:0}}><IcPlus c={p.sub} s={14}/>Добавить задачу</button>}
         </div>}
       </div>;
     })}
     {/* Create list */}
     {addingList
       ?<div style={{background:T.glass,backdropFilter:'blur(16px)',borderRadius:20,padding:'14px 16px',border:'0.5px solid '+T.sep,animation:'scaleIn .2s ease'}}>
-          <input autoFocus value={newListName} onChange={e=>setNewListName(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')createList();if(e.key==='Escape'){setAddingList(false);setNewListName('');}}} placeholder="РќР°Р·РІР°РЅРёРµ РєРѕР»РѕРґС‹..." style={{width:'100%',border:'none',outline:'none',fontSize:16,background:'transparent',color:T.text,marginBottom:12}}/>
+          <input autoFocus value={newListName} onChange={e=>setNewListName(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')createList();if(e.key==='Escape'){setAddingList(false);setNewListName('');}}} placeholder="Название колоды..." style={{width:'100%',border:'none',outline:'none',fontSize:16,background:'transparent',color:T.text,marginBottom:12}}/>
           <div style={{display:'flex',gap:6,marginBottom:12}}>
             {LIST_COLORS.map((c,i)=><div key={i} onClick={()=>setLists(ls=>{if(ls.find(l=>l.colorIdx===i))return ls;return ls;})} style={{width:26,height:26,borderRadius:'50%',background:c,cursor:'pointer'}}/>)}
           </div>
           <div style={{display:'flex',gap:8}}>
-            <button onClick={createList} style={{flex:1,padding:10,borderRadius:12,border:'none',background:T.pill,color:T.pillTxt,fontSize:14,fontWeight:600,cursor:'pointer'}}>РЎРѕР·РґР°С‚СЊ</button>
-            <button onClick={()=>{setAddingList(false);setNewListName('');}} style={{padding:10,borderRadius:12,border:'0.5px solid '+T.sep,background:'transparent',color:T.ctrlTxt,fontSize:14,cursor:'pointer'}}>РћС‚РјРµРЅР°</button>
+            <button onClick={createList} style={{flex:1,padding:10,borderRadius:12,border:'none',background:T.pill,color:T.pillTxt,fontSize:14,fontWeight:600,cursor:'pointer'}}>Создать</button>
+            <button onClick={()=>{setAddingList(false);setNewListName('');}} style={{padding:10,borderRadius:12,border:'0.5px solid '+T.sep,background:'transparent',color:T.ctrlTxt,fontSize:14,cursor:'pointer'}}>Отмена</button>
           </div>
         </div>
-      :<button onClick={()=>setAddingList(true)} style={{width:'100%',padding:'12px',borderRadius:16,border:'1.5px dashed rgba(128,128,128,.25)',background:'transparent',color:T.muted,fontSize:14,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:7}}><IcPlus c={T.muted} s={14}/>РќРѕРІР°СЏ РєРѕР»РѕРґР°</button>}
+      :<button onClick={()=>setAddingList(true)} style={{width:'100%',padding:'12px',borderRadius:16,border:'1.5px dashed rgba(128,128,128,.25)',background:'transparent',color:T.muted,fontSize:14,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:7}}><IcPlus c={T.muted} s={14}/>Новая колода</button>}
   </div>;
 }
 
@@ -734,7 +734,7 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
   const[editDeck,setEditDeck]=useState(null);
   const[editDeckName,setEditDeckName]=useState('');
   const[editDeckColorIdx,setEditDeckColorIdx]=useState(0);
-  const rl={none:null,daily:'в†є РљР°Р¶РґС‹Р№ РґРµРЅСЊ',weekly:'в†є РљР°Р¶РґСѓСЋ РЅРµРґ.',monthly:'в†є РљР°Р¶РґС‹Р№ РјРµСЃ.',yearly:'в†є РљР°Р¶РґС‹Р№ РіРѕРґ'};
+  const rl={none:null,daily:'↺ Каждый день',weekly:'↺ Каждую нед.',monthly:'↺ Каждый мес.',yearly:'↺ Каждый год'};
 
   const activeTasks=openFolderId
     ?tasks.filter(t=>t.listId===openFolderId)
@@ -780,7 +780,7 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
     setEditDeck(null);
   }
   function delFolder(id){
-    if(!window.confirm('РЈРґР°Р»РёС‚СЊ РєРѕР»РѕРґСѓ Рё РІСЃРµ Р·Р°РґР°С‡Рё?'))return;
+    if(!window.confirm('Удалить колоду и все задачи?'))return;
     setLists(ls=>ls.filter(l=>l.id!==id));
     setTasks(ts=>ts.filter(t=>t.listId!==id));
     if(openFolderId===id)setOpenFolderId(null);
@@ -797,17 +797,17 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
         <div style={{minWidth:0}}>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             {openFolder&&<FolderIcon color={P[openFolder.colorIdx||0].dot} size={22}/>}
-            <span style={{fontSize:26,fontWeight:700,letterSpacing:-.5,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{openFolder?openFolder.name:'Р”РµР»Р°'}</span>
+            <span style={{fontSize:26,fontWeight:700,letterSpacing:-.5,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{openFolder?openFolder.name:'Дела'}</span>
           </div>
-          <div style={{fontSize:13,color:T.muted,fontWeight:500,marginTop:2}}>{undone.length} РѕСЃС‚Р°Р»РѕСЃСЊ{openFolder?' В· РєРѕР»РѕРґР°':done.length>0?' В· '+done.length+' СЃРєСЂС‹С‚Рѕ':''}</div>
+          <div style={{fontSize:13,color:T.muted,fontWeight:500,marginTop:2}}>{undone.length} осталось{openFolder?' В· колода':done.length>0?' В· '+done.length+' скрыто':''}</div>
         </div>
       </div>
       <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
         {!listView&&undone.length>1&&<GlassBtn onClick={shuffle}><IcShuffle c={T.ctrlTxt} s={15}/></GlassBtn>}
-        {activeTasks.length>0&&<GlassBtn onClick={()=>{if(window.confirm('РЈРґР°Р»РёС‚СЊ РІСЃРµ?'))setTasks(ts=>ts.filter(t=>openFolderId?t.listId!==openFolderId:!!t.listId));}}><IcTrash c="#ff453a" s={15}/></GlassBtn>}
+        {activeTasks.length>0&&<GlassBtn onClick={()=>{if(window.confirm('Удалить все?'))setTasks(ts=>ts.filter(t=>openFolderId?t.listId!==openFolderId:!!t.listId));}}><IcTrash c="#ff453a" s={15}/></GlassBtn>}
         <Pill onClick={()=>setListView(v=>!v)} active={listView}>
           {listView?<IcStack c={T.pillTxt} s={14}/>:<IcList c={T.ctrlTxt} s={14}/>}
-          {listView?'РЎС‚РѕРїРєР°':'РЎРїРёСЃРѕРє'}
+          {listView?'Стопка':'Список'}
         </Pill>
         <button onClick={onToggleDark} style={{width:34,height:34,borderRadius:10,border:'0.5px solid '+T.sep,background:T.ctrl,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:BL,WebkitBackdropFilter:BL,flexShrink:0}}>
           {dark?<IcSun c={T.ctrlTxt} s={16} sw={1.8}/>:<IcMoon c={T.ctrlTxt} s={16} sw={1.8}/>}
@@ -818,9 +818,9 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
 
     {/* Add form */}
     {adding&&<div style={{flexShrink:0,background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:20,padding:18,marginBottom:14,border:'0.5px solid '+T.sep,animation:'scaleIn .2s ease'}}>
-      <input value={addText} onChange={e=>setAddText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} placeholder="Р§С‚Рѕ РЅСѓР¶РЅРѕ СЃРґРµР»Р°С‚СЊ?" style={{width:'100%',border:'none',outline:'none',fontSize:17,background:'transparent',marginBottom:14,color:T.text}}/>
+      <input value={addText} onChange={e=>setAddText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} placeholder="Что нужно сделать?" style={{width:'100%',border:'none',outline:'none',fontSize:17,background:'transparent',marginBottom:14,color:T.text}}/>
       <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:14}}>{RECURS.map(r=><GlassBtn key={r.v} onClick={()=>setRecur(r.v)} style={recur===r.v?{background:T.pill,color:T.pillTxt}:{}}>{r.l}</GlassBtn>)}</div>
-      <button onClick={add} style={{width:'100%',padding:12,borderRadius:13,border:'none',background:T.pill,color:T.pillTxt,fontSize:15,fontWeight:600,cursor:'pointer'}}>Р”РѕР±Р°РІРёС‚СЊ</button>
+      <button onClick={add} style={{width:'100%',padding:12,borderRadius:13,border:'none',background:T.pill,color:T.pillTxt,fontSize:15,fontWeight:600,cursor:'pointer'}}>Добавить</button>
     </div>}
 
 
@@ -829,17 +829,17 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
       {activeTasks.length===0
         ?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:T.muted}}>
             <IcSun c={T.muted} s={48}/>
-            <div style={{fontSize:16,fontWeight:500,marginTop:12}}>{openFolder?'РљРѕР»РѕРґР° РїСѓСЃС‚Р°':'РќРµС‚ Р·Р°РґР°С‡ вЂ” РЅР°Р¶РјРё +'}</div>
+            <div style={{fontSize:16,fontWeight:500,marginTop:12}}>{openFolder?'Колода пуста':'Нет задач - нажми +'}</div>
           </div>
         :undone.length===0
         ?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:10}}>
-            <div style={{fontSize:13,color:T.muted,fontWeight:500}}>РЎС‚РѕР» РїСѓСЃС‚</div>
-            {done.length>0&&<GlassBtn onClick={()=>setTasks(ts=>ts.map(t=>activeTasks.find(a=>a.id===t.id)?{...t,done:false}:t))} style={{marginTop:6}}>в†є Р’РµСЂРЅСѓС‚СЊ {done.length}</GlassBtn>}
+            <div style={{fontSize:13,color:T.muted,fontWeight:500}}>Стол пуст</div>
+            {done.length>0&&<GlassBtn onClick={()=>setTasks(ts=>ts.map(t=>activeTasks.find(a=>a.id===t.id)?{...t,done:false}:t))} style={{marginTop:6}}>↺ Вернуть {done.length}</GlassBtn>}
           </div>
         :<>
           <div style={{position:'absolute',top:0,left:0,right:0,zIndex:10,display:'flex',justifyContent:'space-between',alignItems:'center',padding:'0 8px',pointerEvents:'none'}}>
-            <span style={{fontSize:12,fontWeight:600,color:T.muted}}>в†ђ РџРѕР·Р¶Рµ</span>
-            <span style={{fontSize:12,fontWeight:600,color:T.muted}}>Р“РѕС‚РѕРІРѕ в†’</span>
+            <span style={{fontSize:12,fontWeight:600,color:T.muted}}>← Позже</span>
+            <span style={{fontSize:12,fontWeight:600,color:T.muted}}>Готово →</span>
           </div>
           <div style={{position:'absolute',top:22,left:0,right:0,bottom:0}}>
             <TinderStack items={undone} onRight={swR} onLeft={swL} onTap={setEdit} onUp={card=>setMoveCard(card)} shufflePhase={sp} renderCard={(card)=>{
@@ -853,19 +853,19 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
                 </div>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0,marginTop:16}}>
                   <div style={{display:'flex',gap:5}}>{undone.slice(0,7).map((_,i)=><div key={i} style={{width:i===0?20:7,height:6,borderRadius:3,background:i===0?p.dot:(p.dot+'40'),transition:'all .3s'}}/>)}</div>
-                  <div style={{fontSize:11,color:p.sub,opacity:.45,display:'flex',alignItems:'center',gap:3}}><IcPencil c={p.sub} s={11}/>РёР·РјРµРЅРёС‚СЊ</div>
+                  <div style={{fontSize:11,color:p.sub,opacity:.45,display:'flex',alignItems:'center',gap:3}}><IcPencil c={p.sub} s={11}/>изменить</div>
                 </div>
               </div>;
             }}/>
           </div>
-          {done.length>0&&<div style={{position:'absolute',bottom:8,right:8,background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:12,padding:'5px 11px',border:'0.5px solid '+T.sep}}><span style={{fontSize:12,fontWeight:600,color:T.sub}}>вњ“ {done.length}</span></div>}
+          {done.length>0&&<div style={{position:'absolute',bottom:8,right:8,background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:12,padding:'5px 11px',border:'0.5px solid '+T.sep}}><span style={{fontSize:12,fontWeight:600,color:T.sub}}>✓ {done.length}</span></div>}
         </>}
     </div>}
 
     {/* Deck chips вЂ” only in stack mode */}
     {!listView&&lists.length>0&&(openFolderId||tasks.filter(t=>t.listId).length>0)&&<div style={{flexShrink:0,marginBottom:8,display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
       <div onClick={()=>setOpenFolderId(null)} style={{borderRadius:12,padding:'5px 10px',cursor:'pointer',display:'flex',alignItems:'center',gap:5,background:!openFolderId?T.pill:'rgba(128,128,128,.07)',border:'0.5px solid '+(openFolderId?'rgba(128,128,128,.18)':'transparent')}}>
-        <span style={{fontSize:12,fontWeight:700,color:!openFolderId?T.pillTxt:T.muted}}>Р’СЃРµ</span>
+        <span style={{fontSize:12,fontWeight:700,color:!openFolderId?T.pillTxt:T.muted}}>Все</span>
       </div>
       {lists.map(l=>{
         const lp=P[l.colorIdx||0];
@@ -914,26 +914,26 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
         {addingFolder
           ?<div style={{display:'flex',gap:6,alignItems:'center',background:T.ctrl,borderRadius:14,padding:'10px 14px',border:'0.5px solid '+T.sep,marginBottom:12}}>
               <FolderIcon color={T.muted} size={14}/>
-              <input autoFocus value={newFolderName} onChange={e=>setNewFolderName(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')createFolder();if(e.key==='Escape'){setAddingFolder(false);setNewFolderName('');}}} placeholder="РќР°Р·РІР°РЅРёРµ РєРѕР»РѕРґС‹..." style={{border:'none',outline:'none',background:'transparent',fontSize:15,color:T.text,flex:1}}/>
+              <input autoFocus value={newFolderName} onChange={e=>setNewFolderName(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')createFolder();if(e.key==='Escape'){setAddingFolder(false);setNewFolderName('');}}} placeholder="Название колоды..." style={{border:'none',outline:'none',background:'transparent',fontSize:15,color:T.text,flex:1}}/>
               <button onClick={createFolder} style={{background:T.pill,border:'none',borderRadius:8,padding:'4px 10px',color:T.pillTxt,fontSize:13,fontWeight:700,cursor:'pointer'}}>OK</button>
             </div>
           :<div onClick={()=>setAddingFolder(true)} style={{background:'rgba(128,128,128,.06)',borderRadius:14,padding:'10px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:8,border:'1px dashed rgba(128,128,128,.18)',marginBottom:12}}>
-              <IcPlus c={T.muted} s={14}/><span style={{fontSize:14,color:T.muted,fontWeight:500}}>РќРѕРІР°СЏ РєРѕР»РѕРґР°</span>
+              <IcPlus c={T.muted} s={14}/><span style={{fontSize:14,color:T.muted,fontWeight:500}}>Новая колода</span>
             </div>}
         {/* Root tasks separator */}
-        {tasks.filter(t=>!t.listId).length>0&&lists.length>0&&<div style={{fontSize:11,fontWeight:700,letterSpacing:1.5,color:T.muted,textTransform:'uppercase',marginBottom:8,marginTop:4,paddingLeft:4}}>Р‘РµР· РєРѕР»РѕРґС‹</div>}
+        {tasks.filter(t=>!t.listId).length>0&&lists.length>0&&<div style={{fontSize:11,fontWeight:700,letterSpacing:1.5,color:T.muted,textTransform:'uppercase',marginBottom:8,marginTop:4,paddingLeft:4}}>Без колоды</div>}
       </>}
       {/* Edit deck sheet */}
       {editDeck&&<Sheet onClose={()=>setEditDeck(null)}>
-        <SectionLabel>РљРѕР»РѕРґР°</SectionLabel>
+        <SectionLabel>Колода</SectionLabel>
         <input value={editDeckName} onChange={e=>setEditDeckName(e.target.value)} style={{width:'100%',border:'none',borderBottom:'1px solid '+T.sep,outline:'none',fontSize:18,fontWeight:700,background:'transparent',color:T.text,marginBottom:18,paddingBottom:8}} onKeyDown={e=>e.key==='Enter'&&saveEditDeck()}/>
-        <SectionLabel>Р¦РІРµС‚</SectionLabel>
+        <SectionLabel>Цвет</SectionLabel>
         <div style={{marginBottom:20}}><Swatches value={editDeckColorIdx} onChange={setEditDeckColorIdx}/></div>
-        <button onClick={saveEditDeck} style={{width:'100%',padding:13,borderRadius:14,border:'none',background:T.pill,color:T.pillTxt,fontSize:16,fontWeight:600,cursor:'pointer',marginBottom:10}}>РЎРѕС…СЂР°РЅРёС‚СЊ</button>
-        <GlassBtn onClick={()=>{delFolder(editDeck.id);setEditDeck(null);}} danger style={{width:'100%',padding:12,justifyContent:'center',display:'flex',gap:6}}><IcTrash c="#ff3b30" s={15}/>РЈРґР°Р»РёС‚СЊ РєРѕР»РѕРґСѓ</GlassBtn>
+        <button onClick={saveEditDeck} style={{width:'100%',padding:13,borderRadius:14,border:'none',background:T.pill,color:T.pillTxt,fontSize:16,fontWeight:600,cursor:'pointer',marginBottom:10}}>Сохранить</button>
+        <GlassBtn onClick={()=>{delFolder(editDeck.id);setEditDeck(null);}} danger style={{width:'100%',padding:12,justifyContent:'center',display:'flex',gap:6}}><IcTrash c="#ff3b30" s={15}/>Удалить колоду</GlassBtn>
       </Sheet>}
       {/* Tasks (root or inside open deck) */}
-      {activeTasks.length===0&&!addingFolder&&<div style={{textAlign:'center',paddingTop:32,color:T.muted,fontSize:16}}>{openFolderId?'РљРѕР»РѕРґР° РїСѓСЃС‚Р°':'РќРµС‚ Р·Р°РґР°С‡ Р±РµР· РєРѕР»РѕРґС‹'}</div>}
+      {activeTasks.length===0&&!addingFolder&&<div style={{textAlign:'center',paddingTop:32,color:T.muted,fontSize:16}}>{openFolderId?'Колода пуста':'Нет задач без колоды'}</div>}
       <SortableList items={[...undone,...done]} keyFn={t=>t.id} gap={12}
         onReorder={(from,to)=>{
           setTasks(ts=>{
@@ -954,7 +954,7 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
                 {task.done&&<IcCheck c="#fff" s={11} sw={2.5}/>}
               </div>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:15,fontWeight:600,color:p.text,textDecoration:task.done?'line-through':'none',opacity:task.done?0.5:1,lineHeight:1.3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{task.text}</div>
+                <div style={{fontSize:15,fontWeight:600,color:p.text,textDecoration:task.done?'line-through':'none',opacity:task.done?.5:1,lineHeight:1.3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{task.text}</div>
                 {task.notes&&!task.done&&<div style={{fontSize:12,color:p.sub,marginTop:2,lineHeight:1.4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{task.notes}</div>}
               </div>
               <button onPointerDown={e=>e.stopPropagation()} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();setEdit(task);}} onClick={e=>{e.stopPropagation();setEdit(task);}} style={{background:'none',border:'none',cursor:'pointer',display:'flex',opacity:.55,touchAction:'manipulation',WebkitTapHighlightColor:'transparent',flexShrink:0}}><IcPencil c={p.sub} s={15}/></button>
@@ -963,7 +963,7 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
           </div>;
         }}
       />
-      {done.length>0&&<GlassBtn onClick={()=>setTasks(ts=>ts.map(t=>activeTasks.find(a=>a.id===t.id&&t.done)?{...t,done:false}:t))} style={{width:'100%',padding:12,marginTop:4,justifyContent:'center'}}>в†є Р’РµСЂРЅСѓС‚СЊ РІС‹РїРѕР»РЅРµРЅРЅС‹Рµ</GlassBtn>}
+      {done.length>0&&<GlassBtn onClick={()=>setTasks(ts=>ts.map(t=>activeTasks.find(a=>a.id===t.id&&t.done)?{...t,done:false}:t))} style={{width:'100%',padding:12,marginTop:4,justifyContent:'center'}}>↺ Вернуть выполненные</GlassBtn>}
     </div>}
   </div>;
 }
@@ -1132,14 +1132,14 @@ function SwipeableCard({children,onSwipeRight,onSwipeLeft,onSwipeUp,style={}}){
     {showUp&&<div style={{position:'absolute',inset:0,background:'rgba(120,120,128,.14)',display:'flex',alignItems:'flex-start',justifyContent:'center',paddingTop:14,borderRadius:28,pointerEvents:'none',opacity:Math.min((-ty-30)/60,1)}}>
       <div style={{background:'rgba(60,60,70,.92)',borderRadius:50,padding:'7px 16px',display:'flex',alignItems:'center',gap:6}}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-        <span style={{color:'#fff',fontSize:12,fontWeight:700}}>РџСЂРѕРїСѓСЃС‚РёС‚СЊ</span>
+        <span style={{color:'#fff',fontSize:12,fontWeight:700}}>Пропустить</span>
       </div>
     </div>}
     {showH&&tx>0&&<div style={{position:'absolute',inset:0,background:'rgba(48,209,88,.14)',display:'flex',alignItems:'center',paddingLeft:20,borderRadius:28,pointerEvents:'none',opacity:Math.min((tx-30)/60,1)}}>
-      <div style={{background:'#30d158',borderRadius:50,padding:'7px 14px',display:'flex',alignItems:'center',gap:5}}><IcCheck c="#fff" s={13} sw={2.5}/><span style={{color:'#fff',fontSize:12,fontWeight:700}}>РЎРґРµР»Р°РЅРѕ</span></div>
+      <div style={{background:'#30d158',borderRadius:50,padding:'7px 14px',display:'flex',alignItems:'center',gap:5}}><IcCheck c="#fff" s={13} sw={2.5}/><span style={{color:'#fff',fontSize:12,fontWeight:700}}>Сделано</span></div>
     </div>}
     {showH&&tx<0&&<div style={{position:'absolute',inset:0,background:'rgba(120,120,128,.12)',display:'flex',alignItems:'center',justifyContent:'flex-end',paddingRight:20,borderRadius:28,pointerEvents:'none',opacity:Math.min((-tx-30)/60,1)}}>
-      <div style={{background:'rgba(90,90,100,.9)',borderRadius:50,padding:'7px 14px',display:'flex',alignItems:'center',gap:5}}><IcX c="#fff" s={13} sw={2.5}/><span style={{color:'#fff',fontSize:12,fontWeight:700}}>РќРµ РІС‹РїРѕР»РЅРµРЅРѕ</span></div>
+      <div style={{background:'rgba(90,90,100,.9)',borderRadius:50,padding:'7px 14px',display:'flex',alignItems:'center',gap:5}}><IcX c="#fff" s={13} sw={2.5}/><span style={{color:'#fff',fontSize:12,fontWeight:700}}>Не выполнено</span></div>
     </div>}
     <div style={{transform:'translateX('+tx+'px) translateY('+(ty<0?ty*0.5:0)+'px)',transition:(tx===0&&ty===0)?'transform .28s cubic-bezier(.25,.46,.45,.94)':'none',willChange:'transform'}}>
       {children}
@@ -1155,7 +1155,7 @@ function HabitCardsList({habits,setHabits,tday,d30,toggleDay,setDayState,setDayV
   function reorder(from,to){setHabits(hs=>{const a=[...hs];const item=a.splice(from,1)[0];a.splice(to,0,item);return a;});}
   function moveToEnd(h){setHabits(hs=>{const r=hs.filter(x=>x.id!==h.id);return[...r,h];});}
 
-  if(habits.length===0)return <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:T.muted,fontSize:16}}>РќРµС‚ РїСЂРёРІС‹С‡РµРє</div>;
+  if(habits.length===0)return <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:T.muted,fontSize:16}}>Нет привычек</div>;
 
   return <div className='no-select' style={{flex:1,overflowY:'auto',paddingTop:8,paddingBottom:8}}>
     <SortableList items={habits} keyFn={h=>h.id} onReorder={reorder} renderItem={(h,idx,isDrag)=>{
@@ -1170,7 +1170,7 @@ function HabitCardsList({habits,setHabits,tday,d30,toggleDay,setDayState,setDayV
               </svg>
             </div>
             <div style={{flex:1,minWidth:0}}>
-              {str>0&&<div style={{fontSize:12,color:p.sub,fontWeight:600,marginBottom:3,display:'flex',alignItems:'center',gap:4}}><IcFlame c={p.sub} s={12}/>{str} РґРЅРµР№ РїРѕРґСЂСЏРґ</div>}
+              {str>0&&<div style={{fontSize:12,color:p.sub,fontWeight:600,marginBottom:3,display:'flex',alignItems:'center',gap:4}}><IcFlame c={p.sub} s={12}/>{str} дней подряд</div>}
               <div style={{fontSize:19,fontWeight:700,color:p.text,lineHeight:1.3,letterSpacing:-.3}}>{h.text}</div>
               {h.notes&&<div style={{fontSize:13,color:p.sub,marginTop:3,lineHeight:1.5}}>{h.notes}</div>}
             </div>
@@ -1265,13 +1265,13 @@ function HabitsTab({habits,setHabits,dark,onToggleDark}){
     {/* Header */}
     <div style={{flexShrink:0,padding:'18px 0 12px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
       <div>
-        <div style={{fontSize:26,fontWeight:700,letterSpacing:-.5,color:T.text}}>РџСЂРёРІС‹С‡РєРё</div>
-        <div style={{fontSize:13,color:T.muted,fontWeight:500,marginTop:2}}>{donT.length}/{habits.length} СЃРµРіРѕРґРЅСЏ</div>
+        <div style={{fontSize:26,fontWeight:700,letterSpacing:-.5,color:T.text}}>Привычки</div>
+        <div style={{fontSize:13,color:T.muted,fontWeight:500,marginTop:2}}>{donT.length}/{habits.length} сегодня</div>
       </div>
       <div style={{display:'flex',gap:6,alignItems:'center'}}>
         <Pill onClick={()=>setMode(m=>m==='stack'?'cards':'stack')} active={mode==='cards'}>
           {mode==='stack'?<IcList c={T.ctrlTxt} s={14}/>:<IcStack c={T.pillTxt} s={14}/>}
-          {mode==='stack'?'РЎРїРёСЃРѕРє':'РЎС‚РѕРїРєР°'}
+          {mode==='stack'?'Список':'Стопка'}
         </Pill>
         <button onClick={onToggleDark} style={{width:34,height:34,borderRadius:10,border:'0.5px solid '+T.sep,background:T.ctrl,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:BL,WebkitBackdropFilter:BL,flexShrink:0}}>
           {dark?<IcSun c={T.ctrlTxt} s={16} sw={1.8}/>:<IcMoon c={T.ctrlTxt} s={16} sw={1.8}/>}
@@ -1280,26 +1280,26 @@ function HabitsTab({habits,setHabits,dark,onToggleDark}){
       </div>
     </div>
     {adding&&<div style={{flexShrink:0,background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:20,padding:18,marginBottom:14,border:'0.5px solid '+T.sep,animation:'scaleIn .2s ease'}}>
-      <input autoFocus value={addText} onChange={e=>setAddText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} placeholder="РќР°Р·РІР°РЅРёРµ РїСЂРёРІС‹С‡РєРё..." style={{width:'100%',border:'none',outline:'none',fontSize:17,background:'transparent',marginBottom:14,color:T.text}}/>
-      <button onClick={add} style={{width:'100%',padding:12,borderRadius:13,border:'none',background:T.pill,color:T.pillTxt,fontSize:15,fontWeight:600,cursor:'pointer'}}>Р”РѕР±Р°РІРёС‚СЊ</button>
+      <input autoFocus value={addText} onChange={e=>setAddText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} placeholder="Название привычки..." style={{width:'100%',border:'none',outline:'none',fontSize:17,background:'transparent',marginBottom:14,color:T.text}}/>
+      <button onClick={add} style={{width:'100%',padding:12,borderRadius:13,border:'none',background:T.pill,color:T.pillTxt,fontSize:15,fontWeight:600,cursor:'pointer'}}>Добавить</button>
     </div>}
     {/* Stack */}
     {mode==='stack'&&<div style={{flex:1,position:'relative',overflow:'hidden'}}>
       {habits.length===0
-        ?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:T.muted}}><IcLeaf c={T.muted} s={48}/><div style={{fontSize:16,fontWeight:500,marginTop:12}}>РќРµС‚ РїСЂРёРІС‹С‡РµРє</div></div>
+        ?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:T.muted}}><IcLeaf c={T.muted} s={48}/><div style={{fontSize:16,fontWeight:500,marginTop:12}}>Нет привычек</div></div>
         :undT.length===0
-        ?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:10}}><IcCheck c={T.muted} s={48}/><div style={{fontSize:18,fontWeight:700,color:T.text}}>Р’СЃС‘ РѕС‚РјРµС‡РµРЅРѕ!</div><div style={{fontSize:13,color:T.muted}}>{donT.length} вњ“  {habits.filter(h=>h.days?.find(d=>d.date===tday)?.state==='failed').length} вњ—</div></div>
+        ?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:10}}><IcCheck c={T.muted} s={48}/><div style={{fontSize:18,fontWeight:700,color:T.text}}>Всё отмечено!</div><div style={{fontSize:13,color:T.muted}}>{donT.length} ✓  {habits.filter(h=>h.days?.find(d=>d.date===tday)?.state==='failed').length} ✗</div></div>
         :<>
           <div style={{position:'absolute',top:0,left:0,right:0,zIndex:10,display:'flex',justifyContent:'space-between',alignItems:'center',padding:'0 8px',pointerEvents:'none'}}>
-            <span style={{fontSize:12,fontWeight:600,color:T.muted}}>в†ђ РџРѕР·Р¶Рµ</span>
-            <span style={{fontSize:12,fontWeight:600,color:T.muted}}>Р“РѕС‚РѕРІРѕ в†’</span>
+            <span style={{fontSize:12,fontWeight:600,color:T.muted}}>← Позже</span>
+            <span style={{fontSize:12,fontWeight:600,color:T.muted}}>Готово →</span>
           </div>
           <div style={{position:'absolute',top:22,left:0,right:0,bottom:0}}>
             <TinderStack items={undT} onRight={swR} onLeft={swL} onUp={swU} onTap={h=>setEditH({...h,_showCal:true})}  renderCard={(h)=>{
               const p=pof(h.colorIdx);const str=streak(h);
               return <div style={{padding:'24px 24px',height:'100%',display:'flex',flexDirection:'column',justifyContent:'space-between'}}>
                 <div style={{flex:1,minHeight:0,display:'flex',flexDirection:'column'}}>
-                  {str>0&&<div style={{fontSize:12,color:p.sub,fontWeight:600,marginBottom:6,display:'flex',alignItems:'center',gap:5}}><IcFlame c={p.sub} s={12}/>{str} РґРЅРµР№ РїРѕРґСЂСЏРґ</div>}
+                  {str>0&&<div style={{fontSize:12,color:p.sub,fontWeight:600,marginBottom:6,display:'flex',alignItems:'center',gap:5}}><IcFlame c={p.sub} s={12}/>{str} дней подряд</div>}
                   <div style={{fontSize:h.widget?22:28,fontWeight:700,color:p.text,lineHeight:1.3,letterSpacing:-.4,marginBottom:h.notes?8:h.widget?14:0}}>{h.text}</div>
                   {h.notes&&<div style={{fontSize:13,color:p.sub,lineHeight:1.5,marginBottom:h.widget?12:0}}>{h.notes}</div>}
                   {h.widget?.type==='counter'&&<div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
@@ -1314,12 +1314,12 @@ function HabitsTab({habits,setHabits,dark,onToggleDark}){
                 </div>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0,marginTop:12}}>
                   <div style={{display:'flex',gap:5}}>{undT.slice(0,7).map((_,i)=><div key={i} style={{width:i===0?20:7,height:6,borderRadius:3,background:i===0?p.dot:(p.dot+'40')}}/>)}</div>
-                  <div style={{fontSize:11,color:p.sub,opacity:.45,display:'flex',alignItems:'center',gap:3}}><IcPencil c={p.sub} s={11}/>РёР·РјРµРЅРёС‚СЊ</div>
+                  <div style={{fontSize:11,color:p.sub,opacity:.45,display:'flex',alignItems:'center',gap:3}}><IcPencil c={p.sub} s={11}/>изменить</div>
                 </div>
               </div>;
             }}/>
           </div>
-          {donT.length>0&&<div style={{position:'absolute',bottom:8,right:8,background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:12,padding:'5px 11px',border:'0.5px solid '+T.sep}}><span style={{fontSize:12,fontWeight:600,color:T.sub}}>вњ“ {donT.length}</span></div>}
+          {donT.length>0&&<div style={{position:'absolute',bottom:8,right:8,background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:12,padding:'5px 11px',border:'0.5px solid '+T.sep}}><span style={{fontSize:12,fontWeight:600,color:T.sub}}>✓ {donT.length}</span></div>}
         </>}
     </div>}
     {/* Cards mode вЂ” long press to drag reorder */}
@@ -1366,8 +1366,8 @@ function SRTab({dark,onToggleDark}){
   return <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
     <div style={{flexShrink:0,padding:'18px 0 12px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
       <div>
-        <div style={{fontSize:26,fontWeight:700,letterSpacing:-.5,color:T.text}}>РџРѕРІС‚РѕСЂРµРЅРёРµ</div>
-        <div style={{fontSize:13,color:T.muted,fontWeight:500,marginTop:2}}>{due.length} Рє РїРѕРІС‚РѕСЂРµРЅРёСЋ В· {cards.length} РІСЃРµРіРѕ</div>
+        <div style={{fontSize:26,fontWeight:700,letterSpacing:-.5,color:T.text}}>Повторение</div>
+        <div style={{fontSize:13,color:T.muted,fontWeight:500,marginTop:2}}>{due.length} к повторению · {cards.length} всего</div>
       </div>
       <div style={{display:'flex',gap:6,alignItems:'center'}}>
         <button onClick={onToggleDark} style={{width:34,height:34,borderRadius:10,border:'0.5px solid '+T.sep,background:T.ctrl,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:BL,WebkitBackdropFilter:BL,flexShrink:0}}>
@@ -1377,14 +1377,14 @@ function SRTab({dark,onToggleDark}){
       </div>
     </div>
     {adding&&<div style={{flexShrink:0,background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:20,padding:18,marginBottom:14,border:'0.5px solid '+T.sep,animation:'scaleIn .2s ease'}}>
-      <input autoFocus value={front} onChange={e=>setFront(e.target.value)} placeholder="Р’РѕРїСЂРѕСЃ..." style={{width:'100%',border:'none',borderBottom:'0.5px solid '+T.sep,outline:'none',fontSize:16,background:'transparent',paddingBottom:11,marginBottom:12,color:T.text}}/>
-      <input value={back} onChange={e=>setBack(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addCard()} placeholder="РћС‚РІРµС‚..." style={{width:'100%',border:'none',outline:'none',fontSize:16,background:'transparent',marginBottom:14,color:T.text}}/>
-      <button onClick={addCard} style={{width:'100%',padding:12,borderRadius:13,border:'none',background:T.pill,color:T.pillTxt,fontSize:15,fontWeight:600,cursor:'pointer'}}>Р”РѕР±Р°РІРёС‚СЊ</button>
+      <input autoFocus value={front} onChange={e=>setFront(e.target.value)} placeholder="Вопрос..." style={{width:'100%',border:'none',borderBottom:'0.5px solid '+T.sep,outline:'none',fontSize:16,background:'transparent',paddingBottom:11,marginBottom:12,color:T.text}}/>
+      <input value={back} onChange={e=>setBack(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addCard()} placeholder="Ответ..." style={{width:'100%',border:'none',outline:'none',fontSize:16,background:'transparent',marginBottom:14,color:T.text}}/>
+      <button onClick={addCard} style={{width:'100%',padding:12,borderRadius:13,border:'none',background:T.pill,color:T.pillTxt,fontSize:15,fontWeight:600,cursor:'pointer'}}>Добавить</button>
     </div>}
     {cur?<div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
       <div style={{flexShrink:0,display:'flex',justifyContent:'space-between',padding:'0 8px',marginBottom:12}}>
-        <span style={{fontSize:12,fontWeight:600,color:dx<-40?'#ff3b30':T.muted,transition:'color .1s'}}>в†ђ РќРµ Р·РЅР°СЋ</span>
-        <span style={{fontSize:12,fontWeight:600,color:dx>40?'#30d158':T.muted,transition:'color .1s'}}>Р—РЅР°СЋ в†’</span>
+        <span style={{fontSize:12,fontWeight:600,color:dx<-40?'#ff3b30':T.muted,transition:'color .1s'}}>← Не знаю</span>
+        <span style={{fontSize:12,fontWeight:600,color:dx>40?'#30d158':T.muted,transition:'color .1s'}}>Знаю →</span>
       </div>
       <div style={{flex:1,position:'relative'}}>
         {thr&&<div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',pointerEvents:'none'}}><div style={{width:'calc(100% - 44px)',height:'100%',borderRadius:28,background:pof(thr.reps).bg,transform:'scale(.88) translateY('+(drag?-12:0)+'px)',transition:drag?'none':'transform .3s ease'}}/></div>}
@@ -1398,16 +1398,16 @@ function SRTab({dark,onToggleDark}){
               transform:fly==='right'?'translateX(160vw) rotate(26deg)':fly==='left'?'translateX(-160vw) rotate(-26deg)':('translateX('+dx+'px) translateY('+(dy*.08)+'px) rotate('+(dx*.05)+'deg)'),
               transition:fly||!stRef.current?'transform .36s cubic-bezier(.25,.46,.45,.94),box-shadow .15s':'box-shadow .15s',
             }}>
-            {dx>30&&<div style={{position:'absolute',inset:0,borderRadius:28,background:'rgba(48,209,88,.1)',display:'flex',alignItems:'flex-start',justifyContent:'flex-end',padding:20,pointerEvents:'none',opacity:Math.min((dx-30)/60,1)}}><div style={{background:'#30d158',borderRadius:50,padding:'7px 14px',display:'flex',alignItems:'center',gap:6}}><IcCheck c="#fff" s={14} sw={2.5}/><span style={{color:'#fff',fontSize:13,fontWeight:700}}>Р—РЅР°СЋ</span></div></div>}
-            {dx<-30&&<div style={{position:'absolute',inset:0,borderRadius:28,background:'rgba(255,59,48,.08)',display:'flex',alignItems:'flex-start',justifyContent:'flex-start',padding:20,pointerEvents:'none',opacity:Math.min((-dx-30)/60,1)}}><div style={{background:'#ff3b30',borderRadius:50,padding:'7px 14px',display:'flex',alignItems:'center',gap:6}}><IcX c="#fff" s={14} sw={2.5}/><span style={{color:'#fff',fontSize:13,fontWeight:700}}>РќРµ Р·РЅР°СЋ</span></div></div>}
+            {dx>30&&<div style={{position:'absolute',inset:0,borderRadius:28,background:'rgba(48,209,88,.1)',display:'flex',alignItems:'flex-start',justifyContent:'flex-end',padding:20,pointerEvents:'none',opacity:Math.min((dx-30)/60,1)}}><div style={{background:'#30d158',borderRadius:50,padding:'7px 14px',display:'flex',alignItems:'center',gap:6}}><IcCheck c="#fff" s={14} sw={2.5}/><span style={{color:'#fff',fontSize:13,fontWeight:700}}>Знаю</span></div></div>}
+            {dx<-30&&<div style={{position:'absolute',inset:0,borderRadius:28,background:'rgba(255,59,48,.08)',display:'flex',alignItems:'flex-start',justifyContent:'flex-start',padding:20,pointerEvents:'none',opacity:Math.min((-dx-30)/60,1)}}><div style={{background:'#ff3b30',borderRadius:50,padding:'7px 14px',display:'flex',alignItems:'center',gap:6}}><IcX c="#fff" s={14} sw={2.5}/><span style={{color:'#fff',fontSize:13,fontWeight:700}}>Не знаю</span></div></div>}
             <div style={{padding:'28px 24px',height:'100%',display:'flex',flexDirection:'column',justifyContent:'space-between',alignItems:'center'}}>
               <div style={{width:'100%'}}>
-                <div style={{fontSize:11,fontWeight:700,letterSpacing:2.5,color:cp.sub,marginBottom:16,textTransform:'uppercase',textAlign:'center'}}>{flipped?'РћС‚РІРµС‚':'Р’РѕРїСЂРѕСЃ'}</div>
+                <div style={{fontSize:11,fontWeight:700,letterSpacing:2.5,color:cp.sub,marginBottom:16,textTransform:'uppercase',textAlign:'center'}}>{flipped?'Ответ':'Вопрос'}</div>
                 <div style={{fontSize:26,fontWeight:700,textAlign:'center',color:cp.text,lineHeight:1.4,letterSpacing:-.3}}>{flipped?cur.back:cur.front}</div>
               </div>
               <div style={{width:'100%'}}>
                 <div style={{display:'flex',gap:5,justifyContent:'center',marginBottom:8}}>{SR.map((_,i)=><div key={i} style={{width:cur.level>=i?20:8,height:5,borderRadius:3,background:cur.level>=i?cp.dot:'rgba(128,128,128,.18)',transition:'all .3s'}}/>)}</div>
-                <div style={{fontSize:12,color:cp.sub,textAlign:'center',fontWeight:500}}>{flipped?'СЃРІР°Р№Рї: РІРїСЂР°РІРѕ вЂ” Р·РЅР°СЋ, РІР»РµРІРѕ вЂ” РЅРµС‚':'РЅР°Р¶РјРё С‡С‚РѕР±С‹ РїРµСЂРµРІРµСЂРЅСѓС‚СЊ'}</div>
+                <div style={{fontSize:12,color:cp.sub,textAlign:'center',fontWeight:500}}>{flipped?'свайп: вправо - знаю, влево - нет':'нажми чтобы перевернуть'}</div>
               </div>
             </div>
           </div>
@@ -1424,8 +1424,8 @@ function SRTab({dark,onToggleDark}){
     :cards.length>0?<div style={{flex:1,overflowY:'auto'}}>
       <div style={{display:'flex',flexDirection:'column',alignItems:'center',paddingTop:28,paddingBottom:16,gap:8}}>
         <IcRepeat c={T.muted} s={44}/>
-        <div style={{fontSize:18,fontWeight:700,letterSpacing:-.3,color:T.text}}>Р’СЃС‘ РїРѕРІС‚РѕСЂРµРЅРѕ!</div>
-        <div style={{color:T.muted,fontSize:14,fontWeight:500}}>РЎР»РµРґСѓСЋС‰РµРµ: {fmtMs(Math.min(...cards.map(c=>c.nextReview))-now)}</div>
+        <div style={{fontSize:18,fontWeight:700,letterSpacing:-.3,color:T.text}}>Всё повторено!</div>
+        <div style={{color:T.muted,fontSize:14,fontWeight:500}}>Следующее: {fmtMs(Math.min(...cards.map(c=>c.nextReview))-now)}</div>
       </div>
       <div style={{background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:18,overflow:'hidden',border:'0.5px solid '+T.sep}}>
         {cards.map((c,i)=>{const p2=pof(c.reps);return <div key={c.id} style={{display:'flex',alignItems:'center',gap:10,padding:'11px 14px',borderBottom:i<cards.length-1?'0.5px solid '+T.sep:'none'}}>
@@ -1436,7 +1436,7 @@ function SRTab({dark,onToggleDark}){
           </div>
           <div style={{fontSize:11,fontWeight:600,color:T.muted,textAlign:'right',flexShrink:0}}>
             <div>{fmtMs(c.nextReview-now)}</div>
-            <div>РЈСЂ.{c.level+1}</div>
+            <div>Ур.{c.level+1}</div>
           </div>
           <button onClick={()=>setCards(cs=>cs.filter(x=>x.id!==c.id))} style={{background:'none',border:'none',cursor:'pointer',display:'flex',opacity:.4}}><IcX c={T.muted} s={15}/></button>
         </div>;})}
@@ -1444,7 +1444,7 @@ function SRTab({dark,onToggleDark}){
     </div>
     :<div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:T.muted,gap:12}}>
       <IcBrain c={T.muted} s={44}/>
-      <div style={{fontSize:16,fontWeight:500}}>РќР°Р¶РјРё + С‡С‚РѕР±С‹ РґРѕР±Р°РІРёС‚СЊ</div>
+      <div style={{fontSize:16,fontWeight:500}}>Нажми + чтобы добавить</div>
     </div>}
   </div>;
 }
@@ -1452,7 +1452,7 @@ function SRTab({dark,onToggleDark}){
 /* ===== ONBOARDING ===== */
 /* ===== ONBOARDING ===== */
 function OnbSwipe({dir,label,color}){
-  const arrows={'right':'в†’','left':'в†ђ','up':'в†‘'};
+  const arrows={'right':'→','left':'←','up':'↑'};
   const colors={'right':'#30d158','left':'#ff453a','up':'#8e8e93'};
   return <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0'}}>
     <div style={{width:36,height:36,borderRadius:11,background:(colors[dir]||'#888')+'22',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
@@ -1472,66 +1472,66 @@ function Onboarding({onDone}){
 
   const steps=[
     {
-      title:'РљР°СЂС‚РѕС‡РєРё',
-      sub:'Р”РѕР±СЂРѕ РїРѕР¶Р°Р»РѕРІР°С‚СЊ! Р‘С‹СЃС‚СЂС‹Р№ РіР°Р№Рґ',
+      title:'Карточки',
+      sub:'Добро пожаловать! Быстрый гайд',
       content:<div>
         <OnbCard bg="rgba(155,143,204,.12)">
-          <div style={{fontSize:15,fontWeight:700,color:'#c4b8f8',marginBottom:10}}>рџ“‹ Р”РµР»Р°</div>
-          <OnbSwipe dir="right" label="Р“РѕС‚РѕРІРѕ вЂ” Р·Р°РґР°С‡Р° РІС‹РїРѕР»РЅРµРЅР°"/>
-          <OnbSwipe dir="left" label="РџРѕР·Р¶Рµ вЂ” СѓР№РґС‘С‚ РІ РєРѕРЅРµС† СЃС‚РѕРїРєРё"/>
-          <OnbSwipe dir="up" label="Р’ РєРѕР»РѕРґСѓ вЂ” РІС‹Р±СЂР°С‚СЊ РєСѓРґР° РїРѕР»РѕР¶РёС‚СЊ"/>
-          <div style={{fontSize:13,color:'rgba(255,255,255,.45)',marginTop:8,lineHeight:1.5}}>РўР°Рї РїРѕ РєР°СЂС‚РѕС‡РєРµ в†’ СЂРµРґР°РєС‚РёСЂРѕРІР°С‚СЊ{'\n'}Р—Р°Р¶РјРё РІ СЃРїРёСЃРєРµ в†’ РїРµСЂРµС‚Р°С‰РёС‚СЊ{'\n'}РЎРІР°Р№Рї РІРІРµСЂС… РїРѕ С‡РёРїСѓ РєРѕР»РѕРґС‹ в†’ С„РёР»СЊС‚СЂ</div>
+          <div style={{fontSize:15,fontWeight:700,color:'#c4b8f8',marginBottom:10}}>Дела</div>
+          <OnbSwipe dir="right" label="Готово - задача выполнена"/>
+          <OnbSwipe dir="left" label="Позже - уйдёт в конец стопки"/>
+          <OnbSwipe dir="up" label="В колоду - выбрать куда положить"/>
+          <div style={{fontSize:13,color:'rgba(255,255,255,.45)',marginTop:8,lineHeight:1.5}}>Тап по карточке → редактировать{'\n'}Зажми в списке → перетащить{'\n'}Свайп вверх по чипу колоды → фильтр</div>
         </OnbCard>
       </div>
     },
     {
-      title:'РљРѕР»РѕРґС‹',
-      sub:'РџР°РїРєРё РґР»СЏ РіСЂСѓРїРїРёСЂРѕРІРєРё Р·Р°РґР°С‡',
+      title:'Колоды',
+      sub:'Папки для группировки задач',
       content:<div>
         <OnbCard bg="rgba(100,196,160,.1)">
-          <div style={{fontSize:15,fontWeight:700,color:'#68c4a0',marginBottom:10}}>рџ“Ѓ РљР°Рє СЂР°Р±РѕС‚Р°СЋС‚ РєРѕР»РѕРґС‹</div>
+          <div style={{fontSize:15,fontWeight:700,color:'#68c4a0',marginBottom:10}}>Как работают колоды</div>
           <div style={{fontSize:14,color:'rgba(255,255,255,.7)',lineHeight:1.7}}>
-            {'в†’ Р РµР¶РёРј РЎРїРёСЃРѕРє: РЅР°Р¶РјРё В«+ РљРѕР»РѕРґР°В»\nв†’ Р’ СЃС‚РѕРїРєРµ: СЃРІР°Р№Рї РІРІРµСЂС… РЅР° РєР°СЂС‚Рµ в†’ РІС‹Р±РµСЂРё РєРѕР»РѕРґСѓ\nв†’ РќР°Р¶РјРё РЅР° С‡РёРї РєРѕР»РѕРґС‹ в†’ СЃРјРѕС‚СЂРёС€СЊ С‚РѕР»СЊРєРѕ РµС‘\nв†’ Р—Р°Р¶РјРё СЃС‚СЂРѕРєСѓ РєРѕР»РѕРґС‹ РІ СЃРїРёСЃРєРµ в†’ РїРµСЂРµС‚Р°С‰Рё\nв†’ РљР°СЂР°РЅРґР°С€ в†’ РїРµСЂРµРёРјРµРЅРѕРІР°С‚СЊ / СЃРјРµРЅРёС‚СЊ С†РІРµС‚\nв†’ Р”РѕР»РіРѕРµ РЅР°Р¶Р°С‚РёРµ РЅР° С‡РёРї в†’ СѓРґР°Р»РёС‚СЊ'}
+            {'→ Режим Список: нажми «+ Колода»\n→ В стопке: свайп вверх на карте → выбери колоду\n→ Нажми на чип колоды → смотришь только её\n→ Зажми строку колоды в списке → перетащи\n→ Карандаш → переименовать / сменить цвет\n→ Долгое нажатие на чип → удалить'}
           </div>
         </OnbCard>
       </div>
     },
     {
-      title:'РџСЂРёРІС‹С‡РєРё',
-      sub:'РЎС‚РѕРїРєР° Рё СЃРїРёСЃРѕРє',
+      title:'Привычки',
+      sub:'Стопка и список',
       content:<div>
         <OnbCard bg="rgba(104,196,160,.1)">
-          <div style={{fontSize:15,fontWeight:700,color:'#68c4a0',marginBottom:10}}>рџЊї РЎС‚РѕРїРєР° РїСЂРёРІС‹С‡РµРє</div>
-          <OnbSwipe dir="right" label="Р’С‹РїРѕР»РЅРµРЅРѕ вЂ” вњ“ Р·РµР»С‘РЅР°СЏ РіР°Р»РѕС‡РєР°"/>
-          <OnbSwipe dir="left" label="РќРµ СЃРґРµР»Р°РЅРѕ вЂ” вњ— РєСЂР°СЃРЅС‹Р№ РєСЂРµСЃС‚РёРє, РєР°СЂС‚Р° СѓС…РѕРґРёС‚"/>
-          <OnbSwipe dir="up" label="РџСЂРѕРїСѓСЃС‚РёС‚СЊ вЂ” РєР°СЂС‚Р° СѓС…РѕРґРёС‚ РІРЅРёР· СЃС‚РѕРїРєРё"/>
-          <div style={{fontSize:13,color:'rgba(255,255,255,.45)',marginTop:8}}>РўР°Рї в†’ СЂРµРґР°РєС‚РёСЂРѕРІР°С‚СЊ В· РСЃС‚РѕСЂРёСЏ в†’ РєР°Р»РµРЅРґР°СЂСЊ</div>
+          <div style={{fontSize:15,fontWeight:700,color:'#68c4a0',marginBottom:10}}>Стопка привычек</div>
+          <OnbSwipe dir="right" label="Выполнено - зелёная галочка"/>
+          <OnbSwipe dir="left" label="Не сделано - красный крестик, карта уходит"/>
+          <OnbSwipe dir="up" label="Пропустить - карта уходит вниз стопки"/>
+          <div style={{fontSize:13,color:'rgba(255,255,255,.45)',marginTop:8}}>Тап → редактировать · История → календарь</div>
         </OnbCard>
         <OnbCard bg="rgba(100,100,200,.1)">
-          <div style={{fontSize:15,fontWeight:700,color:'rgba(200,200,255,.8)',marginBottom:8}}>рџ“‹ РЎРїРёСЃРѕРє РїСЂРёРІС‹С‡РµРє</div>
-          <div style={{fontSize:13,color:'rgba(255,255,255,.6)',lineHeight:1.6}}>РќР°Р¶РјРё В«РЎРїРёСЃРѕРєВ» РІ С€Р°РїРєРµ{'\n'}Р“Р°Р»РѕС‡РєР° СЃРїСЂР°РІР° вЂ” РѕС‚РјРµС‚РёС‚СЊ РІС‹РїРѕР»РЅРµРЅРЅРѕР№{'\n'}Р—Р°Р¶РјРё РєР°СЂС‚РѕС‡РєСѓ в†’ РїРµСЂРµС‚Р°С‰Рё РІС‹С€Рµ/РЅРёР¶Рµ</div>
+          <div style={{fontSize:15,fontWeight:700,color:'rgba(200,200,255,.8)',marginBottom:8}}>Список привычек</div>
+          <div style={{fontSize:13,color:'rgba(255,255,255,.6)',lineHeight:1.6}}>Нажми «Список» в шапке{'\n'}Галочка справа - отметить выполненной{'\n'}Зажми карточку → перетащи выше/ниже</div>
         </OnbCard>
       </div>
     },
     {
-      title:'РџРѕРІС‚РѕСЂРµРЅРёРµ',
-      sub:'РРЅС‚РµСЂРІР°Р»СЊРЅРѕРµ РїРѕРІС‚РѕСЂРµРЅРёРµ РєР°СЂС‚РѕС‡РµРє',
+      title:'Повторение',
+      sub:'Интервальное повторение карточек',
       content:<div>
         <OnbCard bg="rgba(114,170,216,.1)">
-          <div style={{fontSize:15,fontWeight:700,color:'#72aad8',marginBottom:10}}>рџ§  РљР°Рє СѓС‡РёС‚СЊ</div>
-          <OnbSwipe dir="right" label="Р—РЅР°СЋ вЂ” РєР°СЂС‚Р° РїРѕРґРЅРёРјР°РµС‚СЃСЏ РЅР° СѓСЂРѕРІРµРЅСЊ"/>
-          <OnbSwipe dir="left" label="РќРµ Р·РЅР°СЋ вЂ” РІРµСЂРЅС‘С‚СЃСЏ С‡РµСЂРµР· 1 РјРёРЅСѓС‚Сѓ"/>
-          <div style={{fontSize:13,color:'rgba(255,255,255,.45)',marginTop:8}}>РўР°Рї РїРѕ РєР°СЂС‚РѕС‡РєРµ в†’ РїРµСЂРµРІРµСЂРЅСѓС‚СЊ{'\n'}РЎРёСЃС‚РµРјР° СЃР°РјР° СЃС‡РёС‚Р°РµС‚ РєРѕРіРґР° РїРѕРІС‚РѕСЂСЏС‚СЊ: 1РјРёРЅ в†’ 10РјРёРЅ в†’ 1РґРµРЅСЊ в†’ 1РЅРµРґ в†’ 1РјРµСЃ в†’ 6РјРµСЃ</div>
+          <div style={{fontSize:15,fontWeight:700,color:'#72aad8',marginBottom:10}}>Как учить</div>
+          <OnbSwipe dir="right" label="Знаю - карта поднимается на уровень"/>
+          <OnbSwipe dir="left" label="Не знаю - вернётся через 1 минуту"/>
+          <div style={{fontSize:13,color:'rgba(255,255,255,.45)',marginTop:8}}>Тап по карточке → перевернуть{'\n'}Система сама считает когда повторять: 1мин → 10мин → 1день → 1нед → 1мес → 6мес</div>
         </OnbCard>
       </div>
     },
     {
-      title:'Р“РѕС‚РѕРІ!',
-      sub:'РЈРґР°С‡Рё рџљЂ',
+      title:'Готов!',
+      sub:'Удачи',
       content:<div>
         <OnbCard bg="rgba(255,255,255,.07)">
           <div style={{fontSize:14,color:'rgba(255,255,255,.65)',lineHeight:1.8}}>
-            {'вњ“ Р”Р°РЅРЅС‹Рµ С…СЂР°РЅСЏС‚СЃСЏ РЅР° СѓСЃС‚СЂРѕР№СЃС‚РІРµ\nвњ“ Р Р°Р±РѕС‚Р°РµС‚ РѕС„Р»Р°Р№РЅ\nвњ“ РЎР±СЂР°СЃС‹РІР°РµС‚СЃСЏ РІ РїРѕР»РЅРѕС‡СЊ РєР°Р¶РґС‹Р№ РґРµРЅСЊ\n\nРџРѕРІС‚РѕСЂСЏСЋС‰РёРµСЃСЏ РґРµР»Р° РїРѕСЏРІСЏС‚СЃСЏ СЃРЅРѕРІР° С‡РµСЂРµР· РЅСѓР¶РЅС‹Р№ РїРµСЂРёРѕРґ вЂ” РµР¶РµРґРЅРµРІРЅРѕ, РµР¶РµРЅРµРґРµР»СЊРЅРѕ Рё С‚.Рґ.\n\nР’ РЅР°СЃС‚СЂРѕР№РєР°С… С‚РµР»РµС„РѕРЅР° РјРѕР¶РЅРѕ РґРѕР±Р°РІРёС‚СЊ РЅР° РіР»Р°РІРЅС‹Р№ СЌРєСЂР°РЅ РєР°Рє РїСЂРёР»РѕР¶РµРЅРёРµ.'}
+            {'✓ Данные хранятся на устройстве\n✓ Работает офлайн\n✓ Сбрасывается в полночь каждый день\n\nПовторяющиеся дела появятся снова через нужный период - ежедневно, еженедельно и т.д.\n\nВ настройках телефона можно добавить на главный экран как приложение.'}
           </div>
         </OnbCard>
       </div>
@@ -1549,7 +1549,7 @@ function Onboarding({onDone}){
           <div style={{fontSize:24,fontWeight:700,color:'#fff',letterSpacing:-.4}}>{s.title}</div>
           <div style={{fontSize:13,color:'rgba(255,255,255,.45)',marginTop:2}}>{s.sub}</div>
         </div>
-        <button onClick={onDone} style={{padding:'6px 14px',borderRadius:20,border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.08)',color:'rgba(255,255,255,.5)',fontSize:13,cursor:'pointer'}}>РџСЂРѕРїСѓСЃС‚РёС‚СЊ</button>
+        <button onClick={onDone} style={{padding:'6px 14px',borderRadius:20,border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.08)',color:'rgba(255,255,255,.5)',fontSize:13,cursor:'pointer'}}>Пропустить</button>
       </div>
       {/* Progress */}
       <div style={{display:'flex',gap:5,marginBottom:24}}>
@@ -1562,9 +1562,9 @@ function Onboarding({onDone}){
     </div>
     {/* Buttons */}
     <div style={{padding:'16px 24px 40px',flexShrink:0,display:'flex',gap:10}}>
-      {step>0&&<button onClick={()=>setStep(p=>p-1)} style={{flex:1,padding:14,borderRadius:16,border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.08)',color:'rgba(255,255,255,.7)',fontSize:16,fontWeight:600,cursor:'pointer'}}>в†ђ РќР°Р·Р°Рґ</button>}
+      {step>0&&<button onClick={()=>setStep(p=>p-1)} style={{flex:1,padding:14,borderRadius:16,border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.08)',color:'rgba(255,255,255,.7)',fontSize:16,fontWeight:600,cursor:'pointer'}}>← Назад</button>}
       <button onClick={()=>{if(isLast)onDone();else setStep(p=>p+1);}} style={{flex:2,padding:14,borderRadius:16,border:'none',background:isLast?'#30d158':'#fff',color:isLast?'#fff':'#000',fontSize:16,fontWeight:700,cursor:'pointer',transition:'all .2s'}}>
-        {isLast?'РќР°С‡Р°С‚СЊ вњ“':'Р”Р°Р»СЊС€Рµ в†’'}
+        {isLast?'Начать':'Дальше →'}
       </button>
     </div>
   </div>;
@@ -1573,11 +1573,15 @@ function Onboarding({onDone}){
 
 /* ===== ROOT ===== */
 const TABS=[
-  {id:0,l:'Р”РµР»Р°',Icon:({c,s})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 9l2.5 2.5L15 8"/><line x1="8" y1="14.5" x2="16" y2="14.5" opacity=".4"/></svg>},
-  {id:1,l:'РџСЂРёРІС‹С‡РєРё',Icon:({c,s})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2C9 2 6 5 6 9c0 5 6 11 6 11s6-6 6-11c0-4-3-7-6-7z"/><circle cx="12" cy="9" r="2" fill={c} stroke="none" opacity=".7"/></svg>},
+  {id:0,l:'Дела',Icon:({c,s})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 9l2.5 2.5L15 8"/><line x1="8" y1="14.5" x2="16" y2="14.5" opacity=".4"/></svg>},
+  {id:1,l:'Привычки',Icon:({c,s})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2C9 2 6 5 6 9c0 5 6 11 6 11s6-6 6-11c0-4-3-7-6-7z"/><circle cx="12" cy="9" r="2" fill={c} stroke="none" opacity=".7"/></svg>},
+  {id:2,l:'Повторение',Icon:({c,s})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.5"/><circle cx="12" cy="12" r="3" fill={c} stroke="none" opacity=".5"/></svg>},
+];
 
 function App(){
   const[tab,setTab]=useState(0);
+  const[prevTab,setPrevTab]=useState(0);
+  const[dir,setDir]=useState('');
   const[onboarding,setOnboarding]=useState(()=>!localStorage.getItem('onb2'));
   const[dark,setDark]=useState(()=>{const s=localStorage.getItem('dm');if(s!=null)return s==='1';return window.matchMedia('(prefers-color-scheme: dark)').matches;});
   const[tasks,setTasks]=useState(()=>ld('tk9',[]));
@@ -1592,7 +1596,7 @@ function App(){
   // в”Ђв”Ђ Midnight reset в”Ђв”Ђ
   // Logic:
   //   вЂў Recurring tasks (daily/weekly/etc) в†’ reset done:false so they reappear
-  //   вЂў Done non-recurring tasks в†’ removed (РѕРЅРё СѓС€Р»Рё, РґРµРЅСЊ Р·Р°РєРѕРЅС‡РёР»СЃСЏ)
+  //   вЂў Done non-recurring tasks в†’ removed (они ушли, день закончился)
   //   вЂў Undone tasks of any kind в†’ carry over as-is
   //   вЂў Habits в†’ ensureDays runs again with fresh 90-day window (today shifts forward)
   useEffect(()=>{
@@ -1652,9 +1656,13 @@ function App(){
       clearTimeout(timer);
     };
   },[]);
+
   function go(id){
     if(id===tab)return;
+    setPrevTab(tab);
+    setDir(id>tab?'sl':'sr');
     setTab(id);
+    setTimeout(()=>setDir(''),350);
   }
   function convertToHabit(id){
     const task=tasks.find(t=>t.id===id);if(!task)return;
@@ -1717,4 +1725,3 @@ if('serviceWorker' in navigator){
 </script>
 </body>
 </html>
-
