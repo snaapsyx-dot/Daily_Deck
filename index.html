@@ -440,6 +440,13 @@ function TinderStack({items,onRight,onLeft,onUp,onTap,renderCard,shufflePhase,le
   const pof=n=>P[Math.min(Math.max(n||0,0),P.length-1)];
   const top=items[0],sec=items[1],thr=items[2];
   const busy=!!shufflePhase||!!fly;
+  const FAN=[
+    {r:-11,x:-34,y:12},
+    {r:-6,x:-18,y:6},
+    {r:0,x:0,y:0},
+    {r:6,x:18,y:6},
+    {r:11,x:34,y:12},
+  ];
 
   function dn(e){
     if(busy)return;
@@ -758,7 +765,8 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
     setTimeout(()=>{
       setTasks(ts=>{
         const a=[...ts];const ids=undone.map(t=>t.id);
-        const idxs=ids.map(id=>a.findIndex(t=>t.id===id));
+        const idxs=ids.map(id=>a.findIndex(t=>t.id===id)).filter(i=>i>=0);
+        if(idxs.length<2)return ts;
         const vals=idxs.map(i=>a[i]);
         for(let i=vals.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[vals[i],vals[j]]=[vals[j],vals[i]];}
         idxs.forEach((idx,i)=>a[idx]=vals[i]);return a;
