@@ -64,6 +64,10 @@ const sv=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}};
 const fmtMs=ms=>{if(ms<=0)return'Сейчас';const m=Math.round(ms/6e4);if(m<60)return m+' мин';const h=Math.round(m/60);if(h<24)return h+' ч';return Math.round(h/24)+' д';};
 const tod=()=>new Date().toDateString();
 const isInteractiveEl=el=>!!(el&&(el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.tagName==='BUTTON'||el.tagName==='SELECT'));
+const getDateDow=date=>new Date(date).getDay();
+const hasSchedule=item=>Array.isArray(item?.weekdays)&&item.weekdays.length>0;
+const isScheduledForDate=(item,date=tod())=>!hasSchedule(item)||item.weekdays.includes(getDateDow(date));
+const toggleWeekday=(days,dow)=>days.includes(dow)?days.filter(d=>d!==dow):[...days,dow].sort((a,b)=>a-b);
 
 /* ===== ICONS (inline SVG components) ===== */
 const Ic=(d,extra='')=>{
@@ -129,6 +133,18 @@ function SectionLabel({children}){
   const{T,ui}=useT();
   return <div style={{fontSize:ui.isPhone?12:11,fontWeight:700,letterSpacing:1.8,color:T.muted,textTransform:'uppercase',marginBottom:11}}>{children}</div>;
 }
+function WeekdayPicker({value,onChange}){
+  const{T}=useT();
+  const days=Array.isArray(value)?value:[];
+  return <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+    {WD.map((label,dow)=>{
+      const active=days.includes(dow);
+      return <button key={dow} onClick={()=>onChange(toggleWeekday(days,dow))} style={{minWidth:38,padding:'8px 10px',borderRadius:12,border:'0.5px solid '+(active?'transparent':T.sep),background:active?T.pill:'rgba(120,120,128,.08)',color:active?T.pillTxt:T.ctrlTxt,fontSize:13,fontWeight:700,cursor:'pointer'}}>
+        {label}
+      </button>;
+    })}
+  </div>;
+}
 
 /* ===== EDIT TASK SHEET ===== */
 function EditTaskSheet({task,onSave,onDelete,onToHabit,onClose}){
@@ -137,6 +153,7 @@ function EditTaskSheet({task,onSave,onDelete,onToHabit,onClose}){
   const[notes,setNotes]=useState(task.notes||'');
   const[recur,setRecur]=useState(task.recur||'none');
   const[ci,setCi]=useState(task.colorIdx??0);
+  const[weekdays,setWeekdays]=useState(task.weekdays||[]);
   const ia=IaStyle(T,ui);
   return <Sheet onClose={onClose}>
     <SectionLabel>Задача</SectionLabel>
@@ -144,9 +161,11 @@ function EditTaskSheet({task,onSave,onDelete,onToHabit,onClose}){
     <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Примечание..." style={{...ia,minHeight:48,fontSize:14,marginBottom:14}}/>
     <SectionLabel>Повтор</SectionLabel>
     <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:16}}>{RECURS.map(r=><GlassBtn key={r.v} onClick={()=>setRecur(r.v)} style={recur===r.v?{background:T.pill,color:T.pillTxt}:{}}>{r.l}</GlassBtn>)}</div>
+    <SectionLabel>Дни недели</SectionLabel>
+    <div style={{marginBottom:16}}><WeekdayPicker value={weekdays} onChange={setWeekdays}/></div>
     <SectionLabel>Цвет</SectionLabel>
     <div style={{marginBottom:20}}><Swatches value={ci} onChange={setCi}/></div>
-    <button onClick={()=>{if(text.trim())onSave(text.trim(),notes,recur,ci);}} style={{width:'100%',padding:13,borderRadius:14,border:'none',background:T.pill,color:T.pillTxt,fontSize:16,fontWeight:600,cursor:'pointer',marginBottom:11}}>Сохранить</button>
+    <button onClick={()=>{if(text.trim())onSave(text.trim(),notes,recur,ci,weekdays);}} style={{width:'100%',padding:13,borderRadius:14,border:'none',background:T.pill,color:T.pillTxt,fontSize:16,fontWeight:600,cursor:'pointer',marginBottom:11}}>Сохранить</button>
     <div style={{display:'flex',gap:8,alignItems:'stretch'}}>
       <GlassBtn onClick={onToHabit} style={{flex:1,padding:12,minWidth:0,whiteSpace:'nowrap'}}><IcLeaf c="#68c4a0" s={ui.isPhone?17:15}/> В привычки</GlassBtn>
       <GlassBtn onClick={onDelete} danger style={{flex:1,padding:12,minWidth:0,whiteSpace:'nowrap'}}><IcTrash c="#ff3b30" s={ui.isPhone?17:15}/> Удалить</GlassBtn>
@@ -168,57 +187,6 @@ function Sparkline({values,color,width=120,height=32}){
     <polyline points={pts} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity=".75"/>
     {values[last]>0&&<circle cx={lx} cy={ly} r="3" fill={color}/>}
   </svg>;
-}
-
-function MoodWidget({habit,date,p,onValue,small=false}){
-  const MOODS=[
-    {v:1,e:'☹',l:'Плохо'},
-    {v:2,e:'◔',l:'Так себе'},
-    {v:3,e:'○',l:'Норм'},
-    {v:4,e:'☺',l:'Хорошо'},
-    {v:5,e:'★',l:'Отлично'},
-  ];
-  const dayData=(habit.days||[]).find(d=>d.date===date);
-  const val=dayData?.value||0;
-  // Last 14 days for mini chart
-  const history=Array.from({length:14},(_,i)=>{
-    const d=new Date();d.setDate(d.getDate()-(13-i));
-    return (habit.days||[]).find(x=>x.date===d.toDateString())?.value||0;
-  });
-
-  function pick(v){onValue(habit.id,date,v===val?0:v);}
-
-  if(small)return <div style={{display:'flex',gap:4,userSelect:'none'}}>
-    {MOODS.map(m=><button key={m.v}
-      onPointerDown={e=>e.stopPropagation()}
-      onTouchEnd={e=>{e.preventDefault();e.stopPropagation();pick(m.v);}}
-      onClick={e=>{e.stopPropagation();pick(m.v);}}
-      style={{width:28,height:28,borderRadius:8,border:'1.5px solid '+(val===m.v?p.dot:'rgba(128,128,128,.2)'),background:val===m.v?(p.dot+'22'):'transparent',cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',touchAction:'manipulation',WebkitTapHighlightColor:'transparent',transition:'all .15s'}}
-    >{m.e}</button>)}
-  </div>;
-
-  return <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:14,width:'100%',userSelect:'none'}}>
-    <div style={{display:'flex',gap:10}}>
-      {MOODS.map(m=><button key={m.v}
-        onPointerDown={e=>e.preventDefault()}
-        onClick={()=>pick(m.v)}
-        style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,padding:'8px 10px',borderRadius:14,border:'1.5px solid '+(val===m.v?p.dot:'rgba(128,128,128,.15)'),background:val===m.v?(p.dot+'20'):'rgba(0,0,0,.05)',cursor:'pointer',transition:'all .2s',touchAction:'manipulation'}}
-      >
-        <span style={{fontSize:24}}>{m.e}</span>
-        <span style={{fontSize:9,color:val===m.v?p.text:p.sub,fontWeight:val===m.v?700:400}}>{m.l}</span>
-      </button>)}
-    </div>
-    {/* History dots */}
-    {history.some(v=>v>0)&&<div style={{display:'flex',gap:4,alignItems:'flex-end'}}>
-      {history.map((v,i)=>{
-        const m=MOODS.find(x=>x.v===v);
-        return <div key={i} style={{textAlign:'center',opacity:i===13?1:.65}}>
-          <div style={{fontSize:i===13?16:12}}>{v>0?m?.e:'В·'}</div>
-        </div>;
-      })}
-    </div>}
-    <div style={{fontSize:11,color:p.sub,opacity:.5}}>Свайп → чтобы отметить выполненным</div>
-  </div>;
 }
 
 function CounterWidget({habit,date,p,onValue,small=false}){
@@ -374,6 +342,7 @@ function EditHabitSheet({habit,onSave,onDelete,onCalendar,onClose,showCal=false}
   const[notes,setNotes]=useState(habit.notes||'');
   const[ci,setCi]=useState(habit.colorIdx??0);
   const[wType,setWType]=useState(habit.widget?.type||null);
+  const[weekdays,setWeekdays]=useState(habit.weekdays||[]);
   const[wUnit,setWUnit]=useState(habit.widget?.unit||'');
   const[wGoal,setWGoal]=useState(habit.widget?.goal||0);
   const[wWork,setWWork]=useState(habit.widget?.workMin||25);
@@ -385,7 +354,6 @@ function EditHabitSheet({habit,onSave,onDelete,onCalendar,onClose,showCal=false}
     if(!wType)return null;
     if(wType==='counter')return{type:'counter',unit:wUnit,goal:wGoal,autoComplete:wAuto};
     if(wType==='pomodoro')return{type:'pomodoro',workMin:wWork,breakMin:wBreak,sessions:wSess,autoComplete:wAuto};
-    if(wType==='mood')return{type:'mood',autoComplete:true};
     return null;
   }
   const inp={...ia,padding:'8px 12px',borderRadius:10,fontSize:14,marginBottom:8};
@@ -395,9 +363,11 @@ function EditHabitSheet({habit,onSave,onDelete,onCalendar,onClose,showCal=false}
     <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Примечание..." style={{...ia,minHeight:48,fontSize:14,marginBottom:16}}/>
     <SectionLabel>Цвет</SectionLabel>
     <div style={{marginBottom:18}}><Swatches value={ci} onChange={setCi}/></div>
+    <SectionLabel>Дни недели</SectionLabel>
+    <div style={{marginBottom:18}}><WeekdayPicker value={weekdays} onChange={setWeekdays}/></div>
     <SectionLabel>Виджет</SectionLabel>
     <div style={{display:'flex',gap:6,marginBottom:14,flexWrap:'wrap'}}>
-      {[{v:null,l:'Без виджета'},{v:'counter',l:'Счётчик'},{v:'pomodoro',l:'Помодоро'},{v:'mood',l:'Настроение'}].map(opt=><button key={String(opt.v)} onClick={()=>setWType(opt.v)} style={{padding:'6px 12px',borderRadius:10,border:'0.5px solid '+T.sep,background:wType===opt.v?T.pill:'rgba(128,128,128,.08)',color:wType===opt.v?T.pillTxt:T.ctrlTxt,fontSize:13,fontWeight:600,cursor:'pointer'}}>{opt.l}</button>)}
+      {[{v:null,l:'Без виджета'},{v:'counter',l:'Счётчик'},{v:'pomodoro',l:'Помодоро'}].map(opt=><button key={String(opt.v)} onClick={()=>setWType(opt.v)} style={{padding:'6px 12px',borderRadius:10,border:'0.5px solid '+T.sep,background:wType===opt.v?T.pill:'rgba(128,128,128,.08)',color:wType===opt.v?T.pillTxt:T.ctrlTxt,fontSize:13,fontWeight:600,cursor:'pointer'}}>{opt.l}</button>)}
     </div>
     {wType==='counter'&&<div style={{marginBottom:14}}>
       <div style={{display:'flex',gap:8,marginBottom:8}}>
@@ -418,7 +388,7 @@ function EditHabitSheet({habit,onSave,onDelete,onCalendar,onClose,showCal=false}
         <input type="checkbox" checked={wAuto} onChange={e=>setWAuto(e.target.checked)}/> Отмечать выполненным по завершении
       </label>
     </div>}
-    <button onClick={()=>{if(text.trim())onSave(text.trim(),notes,ci,buildWidget());}} style={{width:'100%',padding:13,borderRadius:14,border:'none',background:T.pill,color:T.pillTxt,fontSize:16,fontWeight:600,cursor:'pointer',marginBottom:10}}>Сохранить</button>
+    <button onClick={()=>{if(text.trim())onSave(text.trim(),notes,ci,buildWidget(),weekdays);}} style={{width:'100%',padding:13,borderRadius:14,border:'none',background:T.pill,color:T.pillTxt,fontSize:16,fontWeight:600,cursor:'pointer',marginBottom:10}}>Сохранить</button>
     <div style={{display:'flex',gap:8}}>
       {showCal&&<GlassBtn onClick={onCalendar} style={{flex:1,padding:12}}><IcCal c={T.ctrlTxt} s={15}/> История</GlassBtn>}
       <GlassBtn onClick={onDelete} danger style={{flex:showCal?1:'100%',padding:12,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcTrash c="#ff3b30" s={15}/> Удалить</GlassBtn>
@@ -730,6 +700,7 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
   const P=dark?PD:PL;
   const pof=n=>P[Math.min(Math.max(n||0,0),P.length-1)];
   const[recur,setRecur]=useState('none');
+  const[weekdays,setWeekdays]=useState([]);
   const[addText,setAddText]=useState('');
   const[adding,setAdding]=useState(false);
   const[listView,setListView]=useState(false);
@@ -745,17 +716,17 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
   const rl={none:null,daily:'↺ Каждый день',weekly:'↺ Каждую нед.',monthly:'↺ Каждый мес.',yearly:'↺ Каждый год'};
 
   const activeTasks=openFolderId
-    ?tasks.filter(t=>t.listId===openFolderId)
-    :tasks.filter(t=>!t.listId);
+    ?tasks.filter(t=>t.listId===openFolderId&&isScheduledForDate(t))
+    :tasks.filter(t=>!t.listId&&isScheduledForDate(t));
   const undone=activeTasks.filter(t=>!t.done);
   const done=activeTasks.filter(t=>t.done);
   const openFolder=lists.find(l=>l.id===openFolderId);
 
   function add(){
     if(!addText.trim())return;
-    const newTask={id:Date.now(),text:addText.trim(),notes:'',recur,done:false,reps:0,colorIdx:0};
+    const newTask={id:Date.now(),text:addText.trim(),notes:'',recur,weekdays,done:false,reps:0,colorIdx:0};
     if(openFolderId)newTask.listId=openFolderId;
-    setTasks(ts=>[newTask,...ts]);setAddText('');setAdding(false);
+    setTasks(ts=>[newTask,...ts]);setAddText('');setWeekdays([]);setAdding(false);
   }
   function swR(card){setTasks(ts=>ts.map(t=>t.id===card.id?{...t,done:true,reps:t.reps+1,lastDone:new Date().toISOString()}:t));}
   function swL(card){setTasks(ts=>{const o=ts.filter(t=>t.id!==card.id);return[...o.filter(t=>!t.done),card,...o.filter(t=>t.done)];});}
@@ -774,7 +745,7 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
       setSp('collapse');setTimeout(()=>setSp(null),500);
     },600);
   }
-  function saveEdit(id,text,notes,recur,ci){setTasks(ts=>ts.map(t=>t.id===id?{...t,text,notes,recur,colorIdx:ci}:t));setEdit(null);}
+  function saveEdit(id,text,notes,recur,ci,weekdays){setTasks(ts=>ts.map(t=>t.id===id?{...t,text,notes,recur,colorIdx:ci,weekdays}:t));setEdit(null);}
   function del(id){setTasks(ts=>ts.filter(t=>t.id!==id));setEdit(null);}
   function toggle(id){setTasks(ts=>ts.map(t=>{if(t.id!==id)return t;const d=!t.done;return{...t,done:d,reps:d?t.reps+1:Math.max(0,t.reps-1),lastDone:d?new Date().toISOString():t.lastDone};}));}
   function createFolder(){
@@ -796,7 +767,7 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
   }
 
   return <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
-    {edit&&<EditTaskSheet task={edit} onSave={(t,n,r,c)=>saveEdit(edit.id,t,n,r,c)} onDelete={()=>del(edit.id)} onToHabit={()=>{convertToHabit(edit.id);setEdit(null);}} onClose={()=>setEdit(null)}/>}
+    {edit&&<EditTaskSheet task={edit} onSave={(t,n,r,c,w)=>saveEdit(edit.id,t,n,r,c,w)} onDelete={()=>del(edit.id)} onToHabit={()=>{convertToHabit(edit.id);setEdit(null);}} onClose={()=>setEdit(null)}/>}
     {/* Header */}
     <div style={{flexShrink:0,padding:ui.isPhone?'20px 0 14px':'18px 0 12px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
       <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0,flex:1}}>
@@ -829,7 +800,24 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
     {adding&&<div style={{flexShrink:0,background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:20,padding:18,marginBottom:14,border:'0.5px solid '+T.sep,animation:'scaleIn .2s ease'}}>
       <input value={addText} onChange={e=>setAddText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} placeholder="Что нужно сделать?" style={{width:'100%',border:'none',outline:'none',fontSize:17,background:'transparent',marginBottom:14,color:T.text}}/>
       <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:14}}>{RECURS.map(r=><GlassBtn key={r.v} onClick={()=>setRecur(r.v)} style={recur===r.v?{background:T.pill,color:T.pillTxt}:{}}>{r.l}</GlassBtn>)}</div>
+      <div style={{marginBottom:14}}><WeekdayPicker value={weekdays} onChange={setWeekdays}/></div>
       <button onClick={add} style={{width:'100%',padding:12,borderRadius:13,border:'none',background:T.pill,color:T.pillTxt,fontSize:15,fontWeight:600,cursor:'pointer'}}>Добавить</button>
+    </div>}
+    {moveCard&&!listView&&<div style={{flexShrink:0,marginBottom:10,background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:18,padding:'12px 12px 10px',border:'0.5px solid '+T.sep}}>
+      <div style={{fontSize:11,fontWeight:700,letterSpacing:1.4,color:T.muted,textTransform:'uppercase',marginBottom:8}}>Куда переместить</div>
+      <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+        {lists.map(l=>{
+          const lp=P[l.colorIdx||0];
+          return <button key={l.id} onClick={()=>{setTasks(ts=>ts.map(t=>t.id===moveCard.id?{...t,listId:l.id}:t));setMoveCard(null);}} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'8px 11px',borderRadius:12,border:'0.5px solid rgba(128,128,128,.16)',background:lp.bg,color:lp.text,cursor:'pointer'}}>
+            <FolderIcon color={lp.dot} size={14}/>
+            <span style={{fontSize:13,fontWeight:700}}>{l.name}</span>
+          </button>;
+        })}
+        {moveCard.listId&&<button onClick={()=>{setTasks(ts=>ts.map(t=>t.id===moveCard.id?{...t,listId:undefined}:t));setMoveCard(null);}} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'8px 11px',borderRadius:12,border:'0.5px solid '+T.sep,background:'rgba(120,120,128,.08)',color:T.ctrlTxt,cursor:'pointer'}}>
+          <IcX c={T.ctrlTxt} s={14}/>
+          <span style={{fontSize:13,fontWeight:700}}>Убрать из колоды</span>
+        </button>}
+      </div>
     </div>}
 
 
@@ -856,7 +844,7 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
               return <div style={{padding:'28px 24px',height:'100%',display:'flex',flexDirection:'column',justifyContent:'space-between'}}>
                 <div style={{flex:1,minHeight:0}}>
                   {card.listId&&!openFolderId&&lists.find(l=>l.id===card.listId)&&<div style={{fontSize:10,color:p.sub,fontWeight:600,marginBottom:6,display:'flex',alignItems:'center',gap:3,opacity:.55,textTransform:'uppercase',letterSpacing:.8}}><svg width='10' height='10' viewBox='0 0 24 24' fill={p.dot}><path d='M2 6a2 2 0 0 1 2-2h4l2 2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6z' opacity='.8'/></svg>{lists.find(l=>l.id===card.listId).name}</div>}
-                  {card.recur!=='none'&&<div style={{fontSize:12,color:p.sub,fontWeight:600,marginBottom:8}}>{rl[card.recur]}</div>}
+                  {(card.recur!=='none'||hasSchedule(card))&&<div style={{fontSize:12,color:p.sub,fontWeight:600,marginBottom:8}}>{hasSchedule(card)?card.weekdays.map(d=>WD[d]).join(' · '):rl[card.recur]}</div>}
                   <div style={{fontSize:28,fontWeight:700,color:p.text,lineHeight:1.3,letterSpacing:-.4,marginBottom:card.notes?12:0}}>{card.text}</div>
                   {card.notes&&<div style={{fontSize:14,color:p.sub,lineHeight:1.55,marginTop:2}}>{card.notes}</div>}
                 </div>
@@ -989,6 +977,9 @@ function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
   const dyRef=useRef(0);
   const timer=useRef(null);
   const activeRef=useRef(false);
+  const pointerIdRef=useRef(null);
+
+  function getY(e){return e.clientY??e.touches?.[0]?.clientY??0;}
 
   function measure(){
     const tops=[],heights=[];
@@ -1019,9 +1010,11 @@ function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
     });
   }
 
-  function onTs(idx,e){
-    e.target.style.webkitUserSelect='none';
-    const y=e.touches[0].clientY;
+  function onPs(idx,e){
+    if(e.button!=null&&e.button!==0)return;
+    const y=getY(e);
+    startYRef.current=y;
+    pointerIdRef.current=e.pointerId??null;
     timer.current=setTimeout(()=>{
       measure();
       activeRef.current=true;
@@ -1033,14 +1026,18 @@ function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
       if(dragEl){dragEl.style.transform='translateY(0) scale(1.04)';dragEl.style.boxShadow='0 28px 64px rgba(0,0,0,.32)';dragEl.style.zIndex='100';}
       setSrc(idx);setTgt(idx);
       if(navigator.vibrate)navigator.vibrate(40);
-    },480);
+    },280);
   }
 
-  function onTm(e){
-    clearTimeout(timer.current);
+  function onPm(e){
+    if(pointerIdRef.current!==null&&e.pointerId!=null&&e.pointerId!==pointerIdRef.current)return;
+    if(!activeRef.current){
+      if(Math.abs(getY(e)-startYRef.current)>8)clearTimeout(timer.current);
+      return;
+    }
     if(!activeRef.current||srcRef.current===null)return;
     e.preventDefault();e.stopPropagation();
-    const y=e.touches[0].clientY;
+    const y=getY(e);
     const d=y-startYRef.current;
     dyRef.current=d;
     applyDragTransform(d);
@@ -1057,11 +1054,12 @@ function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
     if(newTgt!==tgtRef.current){tgtRef.current=newTgt;setTgt(newTgt);applyShifts(newTgt);}
   }
 
-  function onTe(e){
+  function onPe(e){
     clearTimeout(timer.current);
     const s=srcRef.current,t=tgtRef.current;
     if(activeRef.current&&s!==null&&t!==null&&t!==s)onReorder(s,t);
     activeRef.current=false;
+    pointerIdRef.current=null;
     // Reset all DOM transforms
     refs.current.forEach(el=>{if(el){el.style.transform='';el.style.boxShadow='';el.style.zIndex='';}});
     srcRef.current=null;tgtRef.current=null;
@@ -1074,9 +1072,10 @@ function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
       return <div
         key={keyFn(item,idx)}
         ref={el=>refs.current[idx]=el}
-        onTouchStart={e=>onTs(idx,e)}
-        onTouchMove={onTm}
-        onTouchEnd={onTe}
+        onPointerDown={e=>onPs(idx,e)}
+        onPointerMove={onPm}
+        onPointerUp={onPe}
+        onPointerCancel={onPe}
         onContextMenu={e=>e.preventDefault()}
         style={{marginBottom:gap,touchAction:'pan-y',position:'relative',borderRadius:28,
           willChange:'transform',
@@ -1161,7 +1160,16 @@ function HabitCardsList({habits,setHabits,tday,d30,toggleDay,setDayState,setDayV
   const P=dark?PD:PL;
   const pof=n=>P[Math.min(Math.max(n||0,0),P.length-1)];
 
-  function reorder(from,to){setHabits(hs=>{const a=[...hs];const item=a.splice(from,1)[0];a.splice(to,0,item);return a;});}
+  function reorder(from,to){
+    setHabits(hs=>{
+      const visibleIds=habits.map(h=>h.id);
+      const visible=hs.filter(h=>visibleIds.includes(h.id));
+      const rest=hs.filter(h=>!visibleIds.includes(h.id));
+      const item=visible.splice(from,1)[0];
+      visible.splice(to,0,item);
+      return [...visible,...rest];
+    });
+  }
   function moveToEnd(h){setHabits(hs=>{const r=hs.filter(x=>x.id!==h.id);return[...r,h];});}
 
   if(habits.length===0)return <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:T.muted,fontSize:16}}>Нет привычек</div>;
@@ -1182,6 +1190,7 @@ function HabitCardsList({habits,setHabits,tday,d30,toggleDay,setDayState,setDayV
               {str>0&&<div style={{fontSize:12,color:p.sub,fontWeight:600,marginBottom:3,display:'flex',alignItems:'center',gap:4}}><IcFlame c={p.sub} s={12}/>{str} дней подряд</div>}
               <div style={{fontSize:19,fontWeight:700,color:p.text,lineHeight:1.3,letterSpacing:-.3}}>{h.text}</div>
               {h.notes&&<div style={{fontSize:13,color:p.sub,marginTop:3,lineHeight:1.5}}>{h.notes}</div>}
+              {hasSchedule(h)&&<div style={{fontSize:12,color:p.sub,marginTop:5,fontWeight:600}}>{h.weekdays.map(d=>WD[d]).join(' · ')}</div>}
             </div>
             <button onPointerDown={e=>e.stopPropagation()} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();setEditH(h);}} onClick={e=>{e.stopPropagation();setEditH(h);}} style={{width:32,height:32,borderRadius:10,background:'rgba(0,0,0,.08)',border:'none',cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',WebkitTapHighlightColor:'transparent',touchAction:'manipulation'}}>
               <IcPencil c={p.sub} s={14}/>
@@ -1208,11 +1217,13 @@ function HabitsTab({habits,setHabits,dark,onToggleDark}){
   const tday=tod();
   const[adding,setAdding]=useState(false);
   const[addText,setAddText]=useState('');
+  const[weekdays,setWeekdays]=useState([]);
   const[mode,setMode]=useState('stack');
   const[calH,setCalH]=useState(null);
   const[editH,setEditH]=useState(null);
 
-  function add(){if(!addText.trim())return;setHabits(hs=>[ensDays({id:Date.now(),text:addText.trim(),notes:'',colorIdx:hs.length%6,days:[],totalReps:0},d90),...hs]);setAddText('');setAdding(false);}
+  const visibleHabits=habits.filter(h=>isScheduledForDate(h,tday));
+  function add(){if(!addText.trim())return;setHabits(hs=>[ensDays({id:Date.now(),text:addText.trim(),notes:'',colorIdx:hs.length%6,weekdays,days:[],totalReps:0},d90),...hs]);setAddText('');setWeekdays([]);setAdding(false);}
   function setDayState(hid,date,state){
     setHabits(hs=>hs.map(h=>{
       if(h.id!==hid)return h;
@@ -1243,14 +1254,14 @@ function HabitsTab({habits,setHabits,dark,onToggleDark}){
   }
   function del(id){setHabits(hs=>hs.filter(h=>h.id!==id));setEditH(null);}
   function move(idx,dir){setHabits(hs=>{const a=[...hs];const t=idx+dir;if(t<0||t>=a.length)return a;[a[idx],a[t]]=[a[t],a[idx]];return a;});}
-  function saveH(id,text,notes,ci,widget){setHabits(hs=>hs.map(h=>h.id===id?{...h,text,notes,colorIdx:ci,widget:widget||null}:h));setEditH(null);}
+  function saveH(id,text,notes,ci,widget,weekdays){setHabits(hs=>hs.map(h=>h.id===id?{...h,text,notes,colorIdx:ci,widget:widget||null,weekdays}:h));setEditH(null);}
   function streak(h){let s=0;for(let i=d30.length-2;i>=0;i--){const dd=h.days?.find(x=>x.date===d30[i]);if(dd?.state==='done')s++;else break;}return s;}
 
-  const undT=habits.filter(h=>{
+  const undT=visibleHabits.filter(h=>{
     const st=h.days?.find(d=>d.date===tday)?.state||null;
     return st!=='done'&&st!=='failed';
   });
-  const donT=habits.filter(h=> h.days?.find(d=>d.date===tday)?.state==='done');
+  const donT=visibleHabits.filter(h=> h.days?.find(d=>d.date===tday)?.state==='done');
 
   function swR(h){setDayState(h.id,tday,'done');} // stack right = toggle done
   function swL(h){
@@ -1270,12 +1281,12 @@ function HabitsTab({habits,setHabits,dark,onToggleDark}){
 
   return <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
     {calH&&<CalModal habit={calH} onClose={()=>setCalH(null)} onToggle={toggleDay}/>}
-    {editH&&<EditHabitSheet habit={editH} showCal={!!editH._showCal} onSave={(t,n,c,w)=>saveH(editH.id,t,n,c,w)} onDelete={()=>del(editH.id)} onCalendar={()=>{setCalH(editH);setEditH(null);}} onClose={()=>setEditH(null)}/>}
+    {editH&&<EditHabitSheet habit={editH} showCal={!!editH._showCal} onSave={(t,n,c,w,days)=>saveH(editH.id,t,n,c,w,days)} onDelete={()=>del(editH.id)} onCalendar={()=>{setCalH(editH);setEditH(null);}} onClose={()=>setEditH(null)}/>}
     {/* Header */}
     <div style={{flexShrink:0,padding:ui.isPhone?'20px 0 14px':'18px 0 12px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
       <div>
         <div style={{fontSize:ui.isPhone?30:26,fontWeight:700,letterSpacing:-.5,color:T.text}}>Привычки</div>
-        <div style={{fontSize:ui.isPhone?14:13,color:T.muted,fontWeight:500,marginTop:2}}>{donT.length}/{habits.length} сегодня</div>
+        <div style={{fontSize:ui.isPhone?14:13,color:T.muted,fontWeight:500,marginTop:2}}>{donT.length}/{visibleHabits.length} сегодня</div>
       </div>
       <div style={{display:'flex',gap:6,alignItems:'center'}}>
         <Pill onClick={()=>setMode(m=>m==='stack'?'cards':'stack')} active={mode==='cards'}>
@@ -1290,14 +1301,15 @@ function HabitsTab({habits,setHabits,dark,onToggleDark}){
     </div>
     {adding&&<div style={{flexShrink:0,background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:20,padding:18,marginBottom:14,border:'0.5px solid '+T.sep,animation:'scaleIn .2s ease'}}>
       <input autoFocus value={addText} onChange={e=>setAddText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} placeholder="Название привычки..." style={{width:'100%',border:'none',outline:'none',fontSize:17,background:'transparent',marginBottom:14,color:T.text}}/>
+      <div style={{marginBottom:14}}><WeekdayPicker value={weekdays} onChange={setWeekdays}/></div>
       <button onClick={add} style={{width:'100%',padding:12,borderRadius:13,border:'none',background:T.pill,color:T.pillTxt,fontSize:15,fontWeight:600,cursor:'pointer'}}>Добавить</button>
     </div>}
     {/* Stack */}
     {mode==='stack'&&<div style={{flex:1,position:'relative',overflow:'hidden'}}>
-      {habits.length===0
+      {visibleHabits.length===0
         ?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:T.muted}}><IcLeaf c={T.muted} s={48}/><div style={{fontSize:16,fontWeight:500,marginTop:12}}>Нет привычек</div></div>
         :undT.length===0
-        ?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:10}}><IcCheck c={T.muted} s={48}/><div style={{fontSize:18,fontWeight:700,color:T.text}}>Всё отмечено!</div><div style={{fontSize:13,color:T.muted}}>{donT.length} ✓  {habits.filter(h=>h.days?.find(d=>d.date===tday)?.state==='failed').length} ✗</div></div>
+        ?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:10}}><IcCheck c={T.muted} s={48}/><div style={{fontSize:18,fontWeight:700,color:T.text}}>Всё отмечено!</div><div style={{fontSize:13,color:T.muted}}>{donT.length} ✓  {visibleHabits.filter(h=>h.days?.find(d=>d.date===tday)?.state==='failed').length} ✗</div></div>
         :<>
           <div style={{position:'absolute',top:0,left:0,right:0,zIndex:10,display:'flex',justifyContent:'space-between',alignItems:'center',padding:'0 8px',pointerEvents:'none'}}>
             <span style={{fontSize:12,fontWeight:600,color:T.muted}}>← Позже</span>
@@ -1309,6 +1321,7 @@ function HabitsTab({habits,setHabits,dark,onToggleDark}){
               return <div style={{padding:'24px 24px',height:'100%',display:'flex',flexDirection:'column',justifyContent:'space-between'}}>
                 <div style={{flex:1,minHeight:0,display:'flex',flexDirection:'column'}}>
                   {str>0&&<div style={{fontSize:12,color:p.sub,fontWeight:600,marginBottom:6,display:'flex',alignItems:'center',gap:5}}><IcFlame c={p.sub} s={12}/>{str} дней подряд</div>}
+                  {hasSchedule(h)&&<div style={{fontSize:12,color:p.sub,fontWeight:600,marginBottom:6}}>{h.weekdays.map(d=>WD[d]).join(' · ')}</div>}
                   <div style={{fontSize:h.widget?22:28,fontWeight:700,color:p.text,lineHeight:1.3,letterSpacing:-.4,marginBottom:h.notes?8:h.widget?14:0}}>{h.text}</div>
                   {h.notes&&<div style={{fontSize:13,color:p.sub,lineHeight:1.5,marginBottom:h.widget?12:0}}>{h.notes}</div>}
                   {h.widget?.type==='counter'&&<div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
@@ -1316,9 +1329,6 @@ function HabitsTab({habits,setHabits,dark,onToggleDark}){
                   </div>}
                   {h.widget?.type==='pomodoro'&&<div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
                     <PomodoroWidget habit={h} date={tday} p={p} onDone={()=>setDayState(h.id,tday,'done')}/>
-                  </div>}
-                  {h.widget?.type==='mood'&&<div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                    <MoodWidget habit={h} date={tday} p={p} onValue={setDayValue}/>
                   </div>}
                 </div>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0,marginTop:12}}>
@@ -1332,7 +1342,7 @@ function HabitsTab({habits,setHabits,dark,onToggleDark}){
         </>}
     </div>}
     {/* Cards mode вЂ” long press to drag reorder */}
-    {mode==='cards'&&<HabitCardsList habits={habits} setHabits={setHabits} tday={tday} d30={d30} toggleDay={toggleDay} setDayState={setDayState} setDayValue={setDayValue} streak={streak} setEditH={setEditH}/>}
+    {mode==='cards'&&<HabitCardsList habits={visibleHabits} setHabits={setHabits} tday={tday} d30={d30} toggleDay={toggleDay} setDayState={setDayState} setDayValue={setDayValue} streak={streak} setEditH={setEditH}/>}
   </div>;
 }
 
@@ -1622,14 +1632,18 @@ function App(){
       // Reset tasks вЂ” check each recurrence period individually
       setTasks(ts=>{
         const now=new Date();
+        const todayDow=now.getDay();
+        const todayStr=now.toDateString();
         return ts
           .map(t=>{
-            if(t.recur==='none') return t; // no recurrence вЂ” leave as-is
-            if(!t.done) return t;           // not done yet вЂ” no reset needed
+            const scheduledToday=hasSchedule(t)&&t.weekdays.includes(todayDow);
+            if(t.recur==='none'&&!scheduledToday) return t;
+            if(!t.done) return t;
 
             // Check if enough time has passed since it was last done
             const lastDone=t.lastDone?new Date(t.lastDone):null;
             if(!lastDone) return {...t,done:false,lastDone:null};
+            if(scheduledToday&&lastDone.toDateString()!==todayStr)return {...t,done:false,lastDone:null};
 
             const daysDiff=Math.floor((now-lastDone)/(1000*60*60*24));
             let shouldReset=false;
@@ -1640,7 +1654,7 @@ function App(){
 
             return shouldReset?{...t,done:false,lastDone:null}:t;
           })
-          .filter(t=>!t.done); // remove completed non-recurring tasks
+          .filter(t=>!t.done||t.recur!=='none'||hasSchedule(t));
       });
 
       // Refresh habits window (shift the 30/90-day strip to include new today)
@@ -1677,7 +1691,7 @@ function App(){
   function convertToHabit(id){
     const task=tasks.find(t=>t.id===id);if(!task)return;
     const d90=mkDates(90);
-    setHabits(hs=>[ensDays({id:Date.now(),text:task.text,notes:task.notes||'',colorIdx:hs.length%6,days:[],totalReps:0},d90),...hs]);
+    setHabits(hs=>[ensDays({id:Date.now(),text:task.text,notes:task.notes||'',colorIdx:hs.length%6,weekdays:task.weekdays||[],days:[],totalReps:0},d90),...hs]);
     setTasks(ts=>ts.filter(t=>t.id!==id));
     go(1);
   }
