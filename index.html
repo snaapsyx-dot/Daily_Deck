@@ -1,0 +1,1720 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Карточки</title>
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Карточки">
+<meta name="theme-color" content="#000000">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overscroll-behavior:none;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;-webkit-font-smoothing:antialiased;}
+::-webkit-scrollbar{display:none;}
+@keyframes scaleIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes slideUp{from{transform:translateY(100%);opacity:0}to{transform:none;opacity:1}}
+@keyframes wiggle{0%,100%{transform:rotate(0deg)}20%{transform:rotate(-1.8deg)}40%{transform:rotate(1.8deg)}60%{transform:rotate(-1.4deg)}80%{transform:rotate(1.4deg)}}
+.no-select{-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important;}
+.no-select *{-webkit-user-select:none!important;user-select:none!important;}
+.wiggle{animation:wiggle .35s ease-in-out infinite;}
+@keyframes slideL{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes slideR{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}
+.sl{animation:slideL .32s cubic-bezier(.22,1,.36,1)}
+.sr{animation:slideR .32s cubic-bezier(.22,1,.36,1)}
+
+*{-webkit-tap-highlight-color:transparent;}
+body{-webkit-user-select:none;user-select:none;}
+input,textarea{-webkit-user-select:text!important;user-select:text!important;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const{useState,useEffect,useRef,createContext,useContext}=React;
+
+/* ===== THEME ===== */
+const BL='blur(24px) saturate(180%)';
+const LT={bg:'#f2f2f7',card:'#fff',card2:'rgba(0,0,0,.05)',text:'#1c1c1e',sub:'#636366',muted:'#aeaeb2',sep:'rgba(0,0,0,.08)',ctrl:'rgba(0,0,0,.07)',ctrlTxt:'#3c3c43',pill:'#1c1c1e',pillTxt:'#fff',glass:'rgba(255,255,255,.75)',tb:'rgba(242,242,247,.94)',ton:'#1c1c1e',toff:'#8e8e93',sh:'rgba(0,0,0,.1)',ib:'rgba(0,0,0,.12)'};
+const DT={bg:'#000',card:'#1c1c1e',card2:'rgba(255,255,255,.07)',text:'#fff',sub:'rgba(235,235,245,.55)',muted:'#48484a',sep:'rgba(255,255,255,.1)',ctrl:'rgba(255,255,255,.1)',ctrlTxt:'rgba(255,255,255,.8)',pill:'#fff',pillTxt:'#000',glass:'rgba(28,28,30,.82)',tb:'rgba(18,18,18,.94)',ton:'#fff',toff:'#48484a',sh:'rgba(0,0,0,.4)',ib:'rgba(255,255,255,.18)'};
+const PL=[{bg:'#ede9ff',text:'#3d2f80',sub:'#8b7fc0',dot:'#9b8fcc'},{bg:'#d9f5ec',text:'#1a5c42',sub:'#4d9e7e',dot:'#68c4a0'},{bg:'#fde8d8',text:'#7a3614',sub:'#c07050',dot:'#e8906a'},{bg:'#fef5cc',text:'#5c4a00',sub:'#a08830',dot:'#d4b84a'},{bg:'#daeeff',text:'#0b4275',sub:'#4a82b8',dot:'#72aad8'},{bg:'#fce4ef',text:'#7a1a40',sub:'#c0507a',dot:'#e07aaa'}];
+const PD=[{bg:'#2a2244',text:'#c4b8f8',sub:'#9b8fcc',dot:'#b0a4e8'},{bg:'#182e24',text:'#7deec0',sub:'#4d9e7e',dot:'#68c4a0'},{bg:'#361c10',text:'#f0b090',sub:'#b06848',dot:'#e08060'},{bg:'#302600',text:'#f0d070',sub:'#987820',dot:'#c8a030'},{bg:'#0c1e32',text:'#90c8f0',sub:'#4a82b8',dot:'#72aad8'},{bg:'#340c1e',text:'#f09ab8',sub:'#b04870',dot:'#e078a0'}];
+const CLABELS=['Р›Р°РІР°РЅРґР°','РњСЏС‚Р°','РџРµСЂСЃРёРє','Р–С‘Р»С‚С‹Р№','Р“РѕР»СѓР±РѕР№','Р РѕР·Р°'];
+const Cx=createContext(null);
+const useT=()=>useContext(Cx);
+
+/* ===== CONSTANTS ===== */
+const SR=[{l:'1 РјРёРЅ',ms:6e4},{l:'10 РјРёРЅ',ms:6e5},{l:'1 РґРµРЅСЊ',ms:864e5},{l:'1 РЅРµРґ',ms:6048e5},{l:'1 РјРµСЃ',ms:2592e6},{l:'6 РјРµСЃ',ms:15552e6}];
+const RECURS=[{v:'none',l:'Р‘РµР· РїРѕРІС‚РѕСЂР°'},{v:'daily',l:'РљР°Р¶РґС‹Р№ РґРµРЅСЊ'},{v:'weekly',l:'РљР°Р¶РґСѓСЋ РЅРµРґ.'},{v:'monthly',l:'РљР°Р¶РґС‹Р№ РјРµСЃ.'},{v:'yearly',l:'РљР°Р¶РґС‹Р№ РіРѕРґ'}];
+const WD=['Р’СЃ','РџРЅ','Р’С‚','РЎСЂ','Р§С‚','РџС‚','РЎР±'];
+const MOS=['РЇРЅРІ','Р¤РµРІ','РњР°СЂ','РђРїСЂ','РњР°Р№','РСЋРЅ','РСЋР»','РђРІРі','РЎРµРЅ','РћРєС‚','РќРѕСЏ','Р”РµРє'];
+const MOF=['РЇРЅРІР°СЂСЊ','Р¤РµРІСЂР°Р»СЊ','РњР°СЂС‚','РђРїСЂРµР»СЊ','РњР°Р№','РСЋРЅСЊ','РСЋР»СЊ','РђРІРіСѓСЃС‚','РЎРµРЅС‚СЏР±СЂСЊ','РћРєС‚СЏР±СЂСЊ','РќРѕСЏР±СЂСЊ','Р”РµРєР°Р±СЂСЊ'];
+const mkDates=n=>Array.from({length:n},(_,i)=>{const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-(n-1-i));return d.toDateString();});
+const ensDays=(h,dates)=>{const ex=new Set((h.days||[]).map(d=>d.date));const m=[...(h.days||[])];dates.forEach(d=>{if(!ex.has(d))m.push({date:d,state:null});});const k=new Set(dates);return{...h,days:m.filter(d=>k.has(d.date))};};
+const ld=(k,d)=>{try{const v=localStorage.getItem(k);return v!=null?JSON.parse(v):d;}catch{return d;}};
+const sv=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}};
+const fmtMs=ms=>{if(ms<=0)return'РЎРµР№С‡Р°СЃ';const m=Math.round(ms/6e4);if(m<60)return m+' РјРёРЅ';const h=Math.round(m/60);if(h<24)return h+' С‡';return Math.round(h/24)+' Рґ';};
+const tod=()=>new Date().toDateString();
+const isInteractiveEl=el=>!!(el&&(el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.tagName==='BUTTON'||el.tagName==='SELECT'));
+
+/* ===== ICONS (inline SVG components) ===== */
+const Ic=(d,extra='')=>{
+  const fn=({c='currentColor',s=20,sw=1.8})=>React.createElement('svg',{width:s,height:s,viewBox:'0 0 24 24',fill:'none',stroke:c,strokeWidth:sw,strokeLinecap:'round',strokeLinejoin:'round',dangerouslySetInnerHTML:{__html:d+extra}});
+  return fn;
+};
+const IcPlus   =Ic('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>');
+const IcX      =Ic('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>');
+const IcCheck  =Ic('<polyline points="20 6 9 17 4 12"/>');
+const IcPencil =Ic('<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>');
+const IcTrash  =Ic('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>');
+const IcShuffle=Ic('<polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/>');
+const IcList   =Ic('<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>');
+const IcStack  =Ic('<rect x="2" y="7" width="20" height="14" rx="2"/>','<path d="M16 3H8L6 7h12z" fill="currentColor" stroke="none" opacity=".5"/>');
+const IcCal    =Ic('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>');
+const IcLeaf   =Ic('<path d="M2 22c5-5 8-9 14-14C14 3 8 5 5 9s-3 9-3 13z"/><line x1="2" y1="22" x2="12" y2="12"/>');
+const IcFlame  =Ic('<path d="M8.5 14.5A6 6 0 0 0 18 9c0-4-4-6-4-6-1 4-3.5 5.5-5.5 7A4 4 0 0 0 6 14a4 4 0 0 0 2.5.5z"/>');
+const IcSun    =Ic('<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>');
+const IcMoon   =Ic('<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>');
+const IcRepeat =Ic('<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>');
+const IcBrain  =Ic('<path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-1.14M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-1.14"/>');
+const IcChevL  =Ic('<polyline points="15 18 9 12 15 6"/>');
+const IcChevR  =Ic('<polyline points="9 18 15 12 9 6"/>');
+const IcChevU  =Ic('<polyline points="18 15 12 9 6 15"/>');
+const IcChevD  =Ic('<polyline points="6 9 12 15 18 9"/>');
+
+/* ===== SHARED UI ===== */
+function GlassBtn({onClick,children,danger,style={}}){
+  const{T}=useT();
+  const bg=danger?'rgba(255,59,48,.1)':'rgba(120,120,128,.1)';
+  const col=danger?'#ff3b30':T.ctrlTxt;
+  return <button onClick={onClick} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',gap:6,padding:'7px 13px',borderRadius:11,border:'0.5px solid '+(danger?'rgba(255,59,48,.22)':T.sep),background:bg,backdropFilter:BL,WebkitBackdropFilter:BL,color:col,fontSize:13,fontWeight:600,cursor:'pointer',transition:'all .18s',...style}}>{children}</button>;
+}
+function Pill({onClick,active,children,style={}}){
+  const{T}=useT();
+  return <button onClick={onClick} style={{display:'inline-flex',alignItems:'center',gap:6,padding:'7px 13px',borderRadius:22,border:'0.5px solid '+(active?'transparent':T.sep),background:active?T.pill:'rgba(120,120,128,.1)',backdropFilter:BL,WebkitBackdropFilter:BL,color:active?T.pillTxt:T.ctrlTxt,fontSize:13,fontWeight:600,cursor:'pointer',transition:'all .2s',flexShrink:0,...style}}>{children}</button>;
+}
+function PlusBtn({onClick,active}){
+  const{T}=useT();
+  return <button onClick={onClick} style={{width:34,height:34,borderRadius:10,border:'0.5px solid '+T.sep,background:active?'rgba(120,120,128,.1)':T.pill,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',backdropFilter:BL,WebkitBackdropFilter:BL,transition:'all .18s',flexShrink:0}}>
+    {active?<IcX c={T.ctrlTxt} s={16} sw={2}/>:<IcPlus c={T.pillTxt} s={16} sw={2}/>}
+  </button>;
+}
+function Swatches({value,onChange}){
+  const{dark}=useT();
+  const P=dark?PD:PL;
+  return <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'center'}}>
+    {P.map((p,i)=><div key={i} onClick={()=>onChange(i)} title={CLABELS[i]} style={{width:30,height:30,borderRadius:'50%',background:p.dot,cursor:'pointer',transition:'all .2s',transform:value===i?'scale(1.25)':'scale(1)',boxShadow:value===i?('0 0 0 2.5px #fff,0 0 0 4px '+p.dot):'none'}}/>)}
+  </div>;
+}
+function Sheet({onClose,children}){
+  const{T}=useT();
+  return <div onClick={e=>{if(e.target===e.currentTarget)onClose();}} style={{position:'fixed',inset:0,zIndex:200,background:'rgba(0,0,0,.42)',display:'flex',alignItems:'flex-end',justifyContent:'center',backdropFilter:'blur(4px)'}}>
+    <div style={{background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:'24px 24px 0 0',width:'100%',maxWidth:600,border:'0.5px solid '+T.sep,animation:'slideUp .26s cubic-bezier(.32,1,.64,1)',maxHeight:'88vh',display:'flex',flexDirection:'column'}}>
+      <div style={{padding:'12px 0 0',display:'flex',justifyContent:'center',flexShrink:0}}><div style={{width:36,height:4,borderRadius:2,background:'rgba(120,120,128,.3)'}}/></div>
+      <div style={{overflowY:'auto',padding:'14px 20px 36px',flex:1}}>{children}</div>
+    </div>
+  </div>;
+}
+function IaStyle(T){return {width:'100%',border:'0.5px solid '+T.ib,borderRadius:14,padding:'11px 14px',background:'rgba(120,120,128,.08)',color:T.text,outline:'none',resize:'none',lineHeight:1.5,fontFamily:'inherit'};}
+function SectionLabel({children}){
+  const{T}=useT();
+  return <div style={{fontSize:11,fontWeight:700,letterSpacing:1.8,color:T.muted,textTransform:'uppercase',marginBottom:11}}>{children}</div>;
+}
+
+/* ===== EDIT TASK SHEET ===== */
+function EditTaskSheet({task,onSave,onDelete,onToHabit,onClose}){
+  const{T}=useT();
+  const[text,setText]=useState(task.text);
+  const[notes,setNotes]=useState(task.notes||'');
+  const[recur,setRecur]=useState(task.recur||'none');
+  const[ci,setCi]=useState(task.colorIdx??0);
+  const ia=IaStyle(T);
+  return <Sheet onClose={onClose}>
+    <SectionLabel>Р—Р°РґР°С‡Р°</SectionLabel>
+    <textarea value={text} onChange={e=>setText(e.target.value)} style={{...ia,minHeight:52,fontSize:17,fontWeight:600,marginBottom:10}}/>
+    <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="РџСЂРёРјРµС‡Р°РЅРёРµ..." style={{...ia,minHeight:48,fontSize:14,marginBottom:14}}/>
+    <SectionLabel>РџРѕРІС‚РѕСЂ</SectionLabel>
+    <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:16}}>{RECURS.map(r=><GlassBtn key={r.v} onClick={()=>setRecur(r.v)} style={recur===r.v?{background:T.pill,color:T.pillTxt}:{}}>{r.l}</GlassBtn>)}</div>
+    <SectionLabel>Р¦РІРµС‚</SectionLabel>
+    <div style={{marginBottom:20}}><Swatches value={ci} onChange={setCi}/></div>
+    <button onClick={()=>{if(text.trim())onSave(text.trim(),notes,recur,ci);}} style={{width:'100%',padding:13,borderRadius:14,border:'none',background:T.pill,color:T.pillTxt,fontSize:16,fontWeight:600,cursor:'pointer',marginBottom:11}}>РЎРѕС…СЂР°РЅРёС‚СЊ</button>
+    <div style={{display:'flex',gap:8}}>
+      <GlassBtn onClick={onToHabit} style={{flex:1,padding:12}}><IcLeaf c="#68c4a0" s={15}/> Р’ РїСЂРёРІС‹С‡РєРё</GlassBtn>
+      <GlassBtn onClick={onDelete} danger style={{flex:1,padding:12}}><IcTrash c="#ff3b30" s={15}/> РЈРґР°Р»РёС‚СЊ</GlassBtn>
+    </div>
+  </Sheet>;
+}
+
+/* ===== EDIT HABIT SHEET ===== */
+/* ===== WIDGET COMPONENTS ===== */
+function Sparkline({values,color,width=120,height=32}){
+  if(!values||values.filter(v=>v>0).length<2)return null;
+  const nonzero=values.filter(v=>v>0);
+  const max=Math.max(...nonzero);const min=0;const range=max||1;
+  const pts=values.map((v,i)=>(i/(values.length-1)*width)+','+(height-(v/range)*(height-4)-2)).join(' ');
+  const last=values.length-1;
+  const lx=last/(values.length-1)*width;
+  const ly=height-(values[last]/range)*(height-4)-2;
+  return <svg width={width} height={height} viewBox={'0 0 '+width+' '+height} style={{overflow:'visible'}}>
+    <polyline points={pts} stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity=".75"/>
+    {values[last]>0&&<circle cx={lx} cy={ly} r="3" fill={color}/>}
+  </svg>;
+}
+
+function MoodWidget({habit,date,p,onValue,small=false}){
+  const MOODS=[
+    {v:1,e:'рџћ',l:'РџР»РѕС…Рѕ'},
+    {v:2,e:'рџђ',l:'РўР°Рє СЃРµР±Рµ'},
+    {v:3,e:'рџ™‚',l:'РќРѕСЂРј'},
+    {v:4,e:'рџЉ',l:'РҐРѕСЂРѕС€Рѕ'},
+    {v:5,e:'рџ¤©',l:'РћС‚Р»РёС‡РЅРѕ'},
+  ];
+  const dayData=(habit.days||[]).find(d=>d.date===date);
+  const val=dayData?.value||0;
+  // Last 14 days for mini chart
+  const history=Array.from({length:14},(_,i)=>{
+    const d=new Date();d.setDate(d.getDate()-(13-i));
+    return (habit.days||[]).find(x=>x.date===d.toDateString())?.value||0;
+  });
+
+  function pick(v){onValue(habit.id,date,v===val?0:v);}
+
+  if(small)return <div style={{display:'flex',gap:4,userSelect:'none'}}>
+    {MOODS.map(m=><button key={m.v}
+      onPointerDown={e=>e.stopPropagation()}
+      onTouchEnd={e=>{e.preventDefault();e.stopPropagation();pick(m.v);}}
+      onClick={e=>{e.stopPropagation();pick(m.v);}}
+      style={{width:28,height:28,borderRadius:8,border:'1.5px solid '+(val===m.v?p.dot:'rgba(128,128,128,.2)'),background:val===m.v?(p.dot+'22'):'transparent',cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',touchAction:'manipulation',WebkitTapHighlightColor:'transparent',transition:'all .15s'}}
+    >{m.e}</button>)}
+  </div>;
+
+  return <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:14,width:'100%',userSelect:'none'}}>
+    <div style={{display:'flex',gap:10}}>
+      {MOODS.map(m=><button key={m.v}
+        onPointerDown={e=>e.preventDefault()}
+        onClick={()=>pick(m.v)}
+        style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,padding:'8px 10px',borderRadius:14,border:'1.5px solid '+(val===m.v?p.dot:'rgba(128,128,128,.15)'),background:val===m.v?(p.dot+'20'):'rgba(0,0,0,.05)',cursor:'pointer',transition:'all .2s',touchAction:'manipulation'}}
+      >
+        <span style={{fontSize:24}}>{m.e}</span>
+        <span style={{fontSize:9,color:val===m.v?p.text:p.sub,fontWeight:val===m.v?700:400}}>{m.l}</span>
+      </button>)}
+    </div>
+    {/* History dots */}
+    {history.some(v=>v>0)&&<div style={{display:'flex',gap:4,alignItems:'flex-end'}}>
+      {history.map((v,i)=>{
+        const m=MOODS.find(x=>x.v===v);
+        return <div key={i} style={{textAlign:'center',opacity:i===13?1:.65}}>
+          <div style={{fontSize:i===13?16:12}}>{v>0?m?.e:'В·'}</div>
+        </div>;
+      })}
+    </div>}
+    <div style={{fontSize:11,color:p.sub,opacity:.5}}>РЎРІР°Р№Рї в†’ С‡С‚РѕР±С‹ РѕС‚РјРµС‚РёС‚СЊ РІС‹РїРѕР»РЅРµРЅРЅС‹Рј</div>
+  </div>;
+}
+
+function CounterWidget({habit,date,p,onValue,small=false}){
+  const days=habit.days||[];
+  const dayData=days.find(d=>d.date===date);
+  const savedVal=dayData?.value??null;
+  const goal=habit.widget?.goal||0;
+  const unit=habit.widget?.unit||'';
+  const numVal=Number(savedVal)||0;
+  const pct=goal>0?Math.min(numVal/goal,1):0;
+  const[inputVal,setInputVal]=useState(savedVal!=null?String(savedVal):'');
+  // Sync when date/habit changes
+  React.useEffect(()=>{setInputVal(savedVal!=null?String(savedVal):'');},[date,habit.id,savedVal]);
+
+  function commit(v){
+    const n=parseFloat(String(v).replace(',','.'));
+    if(!isNaN(n)&&n>=0)onValue(habit.id,date,n);
+  }
+
+  // Last 14 days bar chart
+  const history=Array.from({length:14},(_,i)=>{
+    const d=new Date();d.setDate(d.getDate()-(13-i));
+    return (habit.days||[]).find(x=>x.date===d.toDateString())?.value||0;
+  });
+  const histMax=Math.max(...history,1);
+  const hasHistory=history.some(v=>v>0);
+
+  if(small)return <div style={{display:'flex',alignItems:'center',gap:8,userSelect:'none'}}>
+    <div style={{display:'flex',alignItems:'center',gap:4,background:'rgba(0,0,0,.08)',borderRadius:10,padding:'4px 8px'}}>
+      <input
+        type="number" inputMode="decimal"
+        value={inputVal}
+        placeholder="0"
+        onPointerDown={e=>e.stopPropagation()}
+        onTouchStart={e=>e.stopPropagation()}
+        onChange={e=>setInputVal(e.target.value)}
+        onBlur={e=>commit(e.target.value)}
+        style={{width:50,border:'none',outline:'none',background:'transparent',fontSize:16,fontWeight:700,color:p.text,textAlign:'center'}}
+      />
+      {unit&&<span style={{fontSize:11,color:p.sub,flexShrink:0}}>{unit}</span>}
+    </div>
+    {goal>0&&<div style={{minWidth:44}}>
+      <div style={{fontSize:9,color:p.sub,marginBottom:2}}>/{goal}{unit}</div>
+      <div style={{height:3,width:44,background:'rgba(0,0,0,.1)',borderRadius:2}}>
+        <div style={{width:(pct*100)+'%',height:'100%',background:p.dot,borderRadius:2,transition:'width .3s'}}/>
+      </div>
+    </div>}
+  </div>;
+
+  return <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:14,width:'100%',userSelect:'none'}}>
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6}}>
+      <div style={{display:'flex',alignItems:'baseline',gap:8}}>
+        <input
+          type="number" inputMode="decimal"
+          value={inputVal}
+          placeholder="вЂ”"
+          onChange={e=>setInputVal(e.target.value)}
+          onBlur={e=>commit(e.target.value)}
+          onKeyDown={e=>{if(e.key==='Enter'){e.target.blur();commit(e.target.value);}}}
+          style={{width:130,border:'none',borderBottom:'2px solid '+p.dot,outline:'none',background:'transparent',fontSize:54,fontWeight:700,color:p.text,textAlign:'center',letterSpacing:'-2px',paddingBottom:4}}
+        />
+        {unit&&<span style={{fontSize:18,color:p.sub,fontWeight:500}}>{unit}</span>}
+      </div>
+      {goal>0&&<div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:3,width:160}}>
+        <div style={{display:'flex',justifyContent:'space-between',width:'100%',fontSize:11,color:p.sub}}>
+          <span>0</span><span>С†РµР»СЊ: {goal} {unit}</span>
+        </div>
+        <div style={{height:4,width:'100%',background:'rgba(0,0,0,.15)',borderRadius:2}}>
+          <div style={{width:(pct*100)+'%',height:'100%',background:p.dot,borderRadius:2,transition:'width .3s'}}/>
+        </div>
+      </div>}
+    </div>
+    {hasHistory&&<div style={{width:'100%',paddingTop:4}}>
+      <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:p.sub,marginBottom:5}}>
+        <span>14 РґРЅРµР№</span>
+        <span>РјР°РєСЃ: {histMax}{unit&&' '+unit}</span>
+      </div>
+      <div style={{display:'flex',alignItems:'flex-end',gap:2,height:36}}>
+        {history.map((v,i)=>{
+          const barH=v>0?Math.max(4,Math.round(v/histMax*32)):2;
+          const isToday=i===13;
+          return <div key={i} style={{flex:1,position:'relative',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end',height:36}}>
+            {isToday&&v>0&&<div style={{fontSize:9,color:p.text,marginBottom:2,fontWeight:700,whiteSpace:'nowrap'}}>{v}</div>}
+            <div style={{width:'100%',height:barH,borderRadius:3,background:isToday?p.dot:v>0?(p.dot+'55'):'rgba(128,128,128,.12)',transition:'height .3s'}}/>
+          </div>;
+        })}
+      </div>
+    </div>}
+    <div style={{fontSize:11,color:p.sub,opacity:.45}}>РЎРІР°Р№Рї в†’ С‡С‚РѕР±С‹ РѕС‚РјРµС‚РёС‚СЊ РІС‹РїРѕР»РЅРµРЅРЅС‹Рј</div>
+  </div>;
+}
+
+function PomodoroWidget({habit,date,p,onDone,small=false}){
+  const workSec=(habit.widget?.workMin||25)*60;
+  const breakSec=(habit.widget?.breakMin||5)*60;
+  const maxSess=habit.widget?.sessions||4;
+  const[phase,setPhase]=useState('idle');
+  const[sec,setSec]=useState(workSec);
+  const[sess,setSess]=useState(0);
+  const timerRef=useRef(null);
+  function fmt(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+  function clearT(){if(timerRef.current){clearInterval(timerRef.current);timerRef.current=null;}}
+  function startWork(){
+    clearT();setPhase('work');
+    timerRef.current=setInterval(()=>setSec(s=>{
+      if(s<=1){clearT();setSess(n=>{const nx=n+1;if(nx>=maxSess){setPhase('done');setSec(0);if(onDone)onDone();return nx;}setPhase('break');setSec(breakSec);timerRef.current=setInterval(()=>setSec(s2=>{if(s2<=1){clearT();startWork();return 0;}return s2-1;}),1000);return nx;});return 0;}return s-1;}),1000);
+  }
+  function toggle(){if(timerRef.current){clearT();setPhase('idle');}else{if(phase==='idle'||phase==='work')startWork();}}
+  function reset(){clearT();setPhase('idle');setSec(workSec);setSess(0);}
+  useEffect(()=>()=>clearT(),[]);
+  const running=!!timerRef.current;
+  const displaySec=phase==='idle'?workSec:sec;
+  const pct=phase==='work'?1-sec/workSec:phase==='break'?1-sec/breakSec:phase==='done'?1:0;
+  const col=phase==='break'?'#30d158':phase==='done'?p.dot:p.dot;
+  const r=small?14:30;const circ=2*Math.PI*r;
+
+  if(small)return <div style={{display:'flex',alignItems:'center',gap:8,userSelect:'none',WebkitUserSelect:'none'}}>
+    <svg width={r*2+6} height={r*2+6} viewBox={'0 0 '+(r*2+6)+' '+(r*2+6)} style={{flexShrink:0}}>
+      <circle cx={r+3} cy={r+3} r={r} fill="none" stroke="rgba(128,128,128,.2)" strokeWidth="3"/>
+      <circle cx={r+3} cy={r+3} r={r} fill="none" stroke={col} strokeWidth="3" strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={circ*(1-pct)} transform={'rotate(-90 '+(r+3)+' '+(r+3)+')'} style={{transition:'stroke-dashoffset .5s'}}/>
+    </svg>
+    <div style={{minWidth:44}}>
+      <div style={{fontSize:15,fontWeight:700,color:p.text,fontVariantNumeric:'tabular-nums'}}>{fmt(displaySec)}</div>
+      <div style={{fontSize:10,color:p.sub}}>{phase==='done'?'Р“РѕС‚РѕРІРѕ':phase==='break'?'РџРµСЂРµСЂС‹РІ':'РЎРµСЃСЃРёСЏ '+(sess+1)+'/'+maxSess}</div>
+    </div>
+    {phase!=='done'&&<button onPointerDown={e=>e.stopPropagation()} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();toggle();}} onClick={e=>{e.stopPropagation();toggle();}} style={{width:32,height:32,borderRadius:10,background:p.dot,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',touchAction:'manipulation',WebkitTapHighlightColor:'transparent'}}>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="#fff">{running?<><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></>:<polygon points="5,3 19,12 5,21"/>}</svg>
+    </button>}
+  </div>;
+
+  return <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:14,userSelect:'none',WebkitUserSelect:'none'}}>
+    <div style={{position:'relative',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <svg width={r*2+20} height={r*2+20} viewBox={'0 0 '+(r*2+20)+' '+(r*2+20)}>
+        <circle cx={r+10} cy={r+10} r={r} fill="none" stroke="rgba(128,128,128,.15)" strokeWidth="6"/>
+        <circle cx={r+10} cy={r+10} r={r} fill="none" stroke={col} strokeWidth="6" strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={circ*(1-pct)} transform={'rotate(-90 '+(r+10)+' '+(r+10)+')'} style={{transition:'stroke-dashoffset .5s'}}/>
+      </svg>
+      <div style={{position:'absolute',textAlign:'center'}}>
+        <div style={{fontSize:36,fontWeight:700,color:p.text,fontVariantNumeric:'tabular-nums',letterSpacing:'-1px'}}>{fmt(displaySec)}</div>
+        <div style={{fontSize:11,color:p.sub,marginTop:1}}>{phase==='done'?'рџЋ‰ Р“РѕС‚РѕРІРѕ!':phase==='break'?'РџРµСЂРµСЂС‹РІ':'СЃРµСЃСЃРёСЏ '+(sess+1)+'/'+maxSess}</div>
+      </div>
+    </div>
+    <div style={{display:'flex',gap:8}}>
+      {phase!=='done'&&<button onPointerDown={e=>e.preventDefault()} onClick={toggle} style={{padding:'10px 22px',borderRadius:14,background:running?'rgba(255,255,255,.1)':p.dot,border:running?'1px solid rgba(255,255,255,.2)':'none',color:running?p.sub:'#fff',fontSize:15,fontWeight:600,cursor:'pointer',touchAction:'manipulation'}}>{running?'РџР°СѓР·Р°':'РЎС‚Р°СЂС‚'}</button>}
+      {(sess>0||phase!=='idle')&&<button onPointerDown={e=>e.preventDefault()} onClick={reset} style={{padding:'10px 16px',borderRadius:14,background:'rgba(255,255,255,.07)',border:'1px solid rgba(255,255,255,.12)',color:p.sub,fontSize:15,cursor:'pointer',touchAction:'manipulation'}}>в†є</button>}
+    </div>
+    <div style={{display:'flex',gap:6}}>{Array.from({length:maxSess},(_,i)=><div key={i} style={{width:8,height:8,borderRadius:'50%',background:i<sess?p.dot:'rgba(128,128,128,.2)',transition:'background .3s'}}/>)}</div>
+  </div>;
+}
+
+function EditHabitSheet({habit,onSave,onDelete,onCalendar,onClose,showCal=false}){
+  const{T}=useT();
+  const[text,setText]=useState(habit.text);
+  const[notes,setNotes]=useState(habit.notes||'');
+  const[ci,setCi]=useState(habit.colorIdx??0);
+  const[wType,setWType]=useState(habit.widget?.type||null);
+  const[wUnit,setWUnit]=useState(habit.widget?.unit||'');
+  const[wGoal,setWGoal]=useState(habit.widget?.goal||0);
+  const[wWork,setWWork]=useState(habit.widget?.workMin||25);
+  const[wBreak,setWBreak]=useState(habit.widget?.breakMin||5);
+  const[wSess,setWSess]=useState(habit.widget?.sessions||4);
+  const[wAuto,setWAuto]=useState(habit.widget?.autoComplete!==false);
+  const ia=IaStyle(T);
+  function buildWidget(){
+    if(!wType)return null;
+    if(wType==='counter')return{type:'counter',unit:wUnit,goal:wGoal,autoComplete:wAuto};
+    if(wType==='pomodoro')return{type:'pomodoro',workMin:wWork,breakMin:wBreak,sessions:wSess,autoComplete:wAuto};
+    if(wType==='mood')return{type:'mood',autoComplete:true};
+    return null;
+  }
+  const inp={...ia,padding:'8px 12px',borderRadius:10,fontSize:14,marginBottom:8};
+  return <Sheet onClose={onClose}>
+    <SectionLabel>РџСЂРёРІС‹С‡РєР°</SectionLabel>
+    <textarea value={text} onChange={e=>setText(e.target.value)} style={{...ia,minHeight:52,fontSize:17,fontWeight:600,marginBottom:10}}/>
+    <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="РџСЂРёРјРµС‡Р°РЅРёРµ..." style={{...ia,minHeight:48,fontSize:14,marginBottom:16}}/>
+    <SectionLabel>Р¦РІРµС‚</SectionLabel>
+    <div style={{marginBottom:18}}><Swatches value={ci} onChange={setCi}/></div>
+    <SectionLabel>Р’РёРґР¶РµС‚</SectionLabel>
+    <div style={{display:'flex',gap:6,marginBottom:14,flexWrap:'wrap'}}>
+      {[{v:null,l:'Р‘РµР· РІРёРґР¶РµС‚Р°'},{v:'counter',l:'рџ“Љ РЎС‡С‘С‚С‡РёРє'},{v:'pomodoro',l:'рџЌ… РџРѕРјРѕРґРѕСЂРѕ'},{v:'mood',l:'рџЉ РќР°СЃС‚СЂРѕРµРЅРёРµ'}].map(opt=><button key={String(opt.v)} onClick={()=>setWType(opt.v)} style={{padding:'6px 12px',borderRadius:10,border:'0.5px solid '+T.sep,background:wType===opt.v?T.pill:'rgba(128,128,128,.08)',color:wType===opt.v?T.pillTxt:T.ctrlTxt,fontSize:13,fontWeight:600,cursor:'pointer'}}>{opt.l}</button>)}
+    </div>
+    {wType==='counter'&&<div style={{marginBottom:14}}>
+      <div style={{display:'flex',gap:8,marginBottom:8}}>
+        <input value={wUnit} onChange={e=>setWUnit(e.target.value)} placeholder="Р•РґРёРЅРёС†Р° (РєРі, СЂР°Р·, РјРёРЅ...)" style={{...inp,flex:1}}/>
+        <input value={wGoal||''} onChange={e=>setWGoal(Number(e.target.value)||0)} placeholder="Р¦РµР»СЊ" type="number" style={{...inp,width:80}}/>
+      </div>
+      <label style={{display:'flex',alignItems:'center',gap:8,fontSize:14,color:T.ctrlTxt,cursor:'pointer'}}>
+        <input type="checkbox" checked={wAuto} onChange={e=>setWAuto(e.target.checked)}/> РћС‚РјРµС‡Р°С‚СЊ РІС‹РїРѕР»РЅРµРЅРЅС‹Рј РїСЂРё Р·РЅР°С‡РµРЅРёРё &gt; 0
+      </label>
+    </div>}
+    {wType==='pomodoro'&&<div style={{marginBottom:14}}>
+      <div style={{display:'flex',gap:8,marginBottom:8}}>
+        <div style={{flex:1}}><div style={{fontSize:11,color:T.muted,marginBottom:3}}>Р Р°Р±РѕС‚Р° (РјРёРЅ)</div><input value={wWork} onChange={e=>setWWork(Math.max(1,Number(e.target.value)||25))} type="number" style={inp}/></div>
+        <div style={{flex:1}}><div style={{fontSize:11,color:T.muted,marginBottom:3}}>РџРµСЂРµСЂС‹РІ (РјРёРЅ)</div><input value={wBreak} onChange={e=>setWBreak(Math.max(1,Number(e.target.value)||5))} type="number" style={inp}/></div>
+        <div style={{width:70}}><div style={{fontSize:11,color:T.muted,marginBottom:3}}>РЎРµСЃСЃРёР№</div><input value={wSess} onChange={e=>setWSess(Math.max(1,Number(e.target.value)||4))} type="number" style={inp}/></div>
+      </div>
+      <label style={{display:'flex',alignItems:'center',gap:8,fontSize:14,color:T.ctrlTxt,cursor:'pointer'}}>
+        <input type="checkbox" checked={wAuto} onChange={e=>setWAuto(e.target.checked)}/> РћС‚РјРµС‡Р°С‚СЊ РІС‹РїРѕР»РЅРµРЅРЅС‹Рј РїРѕ Р·Р°РІРµСЂС€РµРЅРёРё
+      </label>
+    </div>}
+    <button onClick={()=>{if(text.trim())onSave(text.trim(),notes,ci,buildWidget());}} style={{width:'100%',padding:13,borderRadius:14,border:'none',background:T.pill,color:T.pillTxt,fontSize:16,fontWeight:600,cursor:'pointer',marginBottom:10}}>РЎРѕС…СЂР°РЅРёС‚СЊ</button>
+    <div style={{display:'flex',gap:8}}>
+      {showCal&&<GlassBtn onClick={onCalendar} style={{flex:1,padding:12}}><IcCal c={T.ctrlTxt} s={15}/> РСЃС‚РѕСЂРёСЏ</GlassBtn>}
+      <GlassBtn onClick={onDelete} danger style={{flex:showCal?1:'100%',padding:12,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}><IcTrash c="#ff3b30" s={15}/> РЈРґР°Р»РёС‚СЊ</GlassBtn>
+    </div>
+  </Sheet>;
+}
+
+function TinderStack({items,onRight,onLeft,onUp,onTap,renderCard,shufflePhase,leftLabel='РџРѕР·Р¶Рµ',leftColor='#ff3b30'}){
+  const cardRef=useRef(null);
+  const[dx,setDx]=useState(0);
+  const[dy,setDy]=useState(0);
+  // Use refs for reliable tap detection - state updates are async so closures see stale values
+  const dxRef=useRef(0);
+  const dyRef=useRef(0);
+  const stRef=useRef(null);
+  const[fly,setFly]=useState(null);
+  const{dark}=useT();
+  const P=dark?PD:PL;
+  const pof=n=>P[Math.min(Math.max(n||0,0),P.length-1)];
+  const top=items[0],sec=items[1],thr=items[2];
+  const busy=!!shufflePhase||!!fly;
+
+  function dn(e){
+    if(busy)return;
+    // Don't start drag if touching an interactive element
+    const t=e.target||e.srcElement;
+    if(isInteractiveEl(t))return;
+    const x=e.clientX??e.touches?.[0]?.clientX;
+    const y=e.clientY??e.touches?.[0]?.clientY;
+    stRef.current={x,y};
+    dxRef.current=0; dyRef.current=0;
+    setDx(0); setDy(0);
+  }
+  function mv(e){
+    if(!stRef.current||busy)return;
+    const nx=(e.clientX??e.touches?.[0]?.clientX)-stRef.current.x;
+    const ny=(e.clientY??e.touches?.[0]?.clientY)-stRef.current.y;
+    dxRef.current=nx; dyRef.current=ny;
+    setDx(nx); setDy(ny);
+  }
+  function up(){
+    if(!stRef.current)return;
+    const cx=dxRef.current, cy=dyRef.current;
+    stRef.current=null;
+    if(cx>65)doFly('right');
+    else if(cx<-65)doFly('left');
+    else if(cy<-65&&Math.abs(cx)<60&&onUp)fly_up();
+    else{
+      if(Math.abs(cx)<12&&Math.abs(cy)<12&&onTap)onTap(top);
+      dxRef.current=0; dyRef.current=0;
+      setDx(0); setDy(0);
+    }
+  }
+  function doFly(dir){setFly(dir);dxRef.current=0;dyRef.current=0;setDx(0);setDy(0);setTimeout(()=>{if(dir==='right')onRight(top);else onLeft(top);setFly(null);},360);}
+  function fly_up(){setFly('up');dxRef.current=0;dyRef.current=0;setDx(0);setDy(0);setTimeout(()=>{if(onUp)onUp(top);setFly(null);},340);}
+  // Non-passive touchmove so preventDefault works on mobile (prevents page scroll during swipe)
+  useEffect(()=>{
+    const el=cardRef.current;
+    if(!el)return;
+    const handler=e=>{
+      const t=e.target;
+      // Don't intercept touches on interactive elements
+      if(isInteractiveEl(t))return;
+      if(e.touches[0]&&stRef.current){e.preventDefault();mv(e.touches[0]);}
+    };
+    el.addEventListener('touchmove',handler,{passive:false});
+    return()=>el.removeEventListener('touchmove',handler);
+  },[!!top,!!shufflePhase]);
+
+  if(!top)return null;
+  const cp=pof(top.colorIdx);
+  const drag=!!stRef.current&&!busy;
+
+  if(shufflePhase){
+    const fi=items.slice(0,Math.min(items.length,5));
+    const isFan=shufflePhase==='fan';
+    return <div style={{position:'relative',width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      {fi.map((item,i)=>{
+        const n=fi.length===1?2:Math.round(i*(4/Math.max(fi.length-1,1)));
+        const f=FAN[n]||FAN[2];
+        const p2=pof(item.colorIdx);
+        return <div key={item.id} style={{
+          position:'absolute',width:'84%',height:'84%',borderRadius:26,background:p2.bg,
+          boxShadow:'0 12px 40px rgba(0,0,0,.18)',
+          transform:isFan?('rotate('+f.r+'deg) translateX('+f.x+'px) translateY('+f.y+'px) scale(.93)'):'rotate(0deg) translateX(0px) translateY(0px) scale(1)',
+          transition:isFan?'transform .55s cubic-bezier(.4,0,.2,1)':'transform .45s cubic-bezier(.4,0,.2,1)',
+          zIndex:fi.length-i,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',
+        }}>
+          {i===0&&<div style={{fontSize:15,fontWeight:700,color:p2.text,padding:'0 22px',textAlign:'center',opacity:isFan?1:0,transition:'opacity .2s .1s'}}>{item.text}</div>}
+        </div>;
+      })}
+    </div>;
+  }
+
+  return <div style={{position:'relative',width:'100%',height:'100%',userSelect:'none'}}>
+    {thr&&<div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',pointerEvents:'none'}}>
+      <div style={{width:'calc(100% - 44px)',height:'100%',borderRadius:28,background:pof(thr.colorIdx).bg,transform:'scale(.88) translateY('+(drag?-12:0)+'px)',transition:drag?'none':'transform .3s ease'}}/>
+    </div>}
+    {sec&&<div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',pointerEvents:'none'}}>
+      <div style={{width:'calc(100% - 22px)',height:'100%',borderRadius:28,background:pof(sec.colorIdx).bg,transform:'scale(.94) translateY('+(drag?-20:0)+'px)',transition:drag?'none':'transform .3s ease',boxShadow:'0 4px 24px rgba(0,0,0,.12)'}}/>
+    </div>}
+    <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div ref={cardRef} onMouseDown={dn} onMouseMove={mv} onMouseUp={up} onMouseLeave={()=>{if(stRef.current){const cx=dxRef.current,cy=dyRef.current;stRef.current=null;if(cx>65)doFly('right');else if(cx<-65)doFly('left');else if(cy<-65&&Math.abs(cx)<60&&onUp)fly_up();else{dxRef.current=0;dyRef.current=0;setDx(0);setDy(0);}}}}
+        onTouchStart={e=>dn(e.touches[0])} onTouchEnd={up}
+        style={{width:'100%',height:'100%',borderRadius:28,background:cp.bg,
+          touchAction:'none',WebkitUserSelect:'none',userSelect:'none',
+          boxShadow:dx>40?'0 18px 52px rgba(48,209,88,.24)':dx<-40?'0 18px 52px rgba(255,59,48,.2)':'0 16px 52px rgba(0,0,0,.15)',
+          cursor:fly?'default':'grab',position:'relative',overflow:'hidden',
+          transform:fly==='right'?'translateX(160vw) rotate(26deg)':fly==='left'?'translateX(-160vw) rotate(-26deg)':fly==='up'?'translateY(-120vh) scale(.8)':('translateX('+dx+'px) translateY('+(dy*.08)+'px) rotate('+(dx*.05)+'deg)'),
+          transition:fly||!stRef.current?'transform .34s cubic-bezier(.25,.46,.45,.94),box-shadow .15s':'box-shadow .15s',
+        }}>
+        {dx>30&&<div style={{position:'absolute',inset:0,borderRadius:28,background:'rgba(48,209,88,.1)',display:'flex',alignItems:'flex-start',justifyContent:'flex-end',padding:20,pointerEvents:'none',opacity:Math.min((dx-30)/60,1)}}>
+          <div style={{background:'#30d158',borderRadius:50,padding:'7px 14px',display:'flex',alignItems:'center',gap:6}}><IcCheck c="#fff" s={14} sw={2.5}/><span style={{color:'#fff',fontSize:13,fontWeight:700}}>Р“РѕС‚РѕРІРѕ</span></div>
+        </div>}
+        {dx<-30&&<div style={{position:'absolute',inset:0,borderRadius:28,background:'rgba(255,59,48,.08)',display:'flex',alignItems:'flex-start',justifyContent:'flex-start',padding:20,pointerEvents:'none',opacity:Math.min((-dx-30)/60,1)}}>
+          <div style={{background:leftColor,borderRadius:50,padding:'7px 14px',display:'flex',alignItems:'center',gap:6}}><IcX c="#fff" s={14} sw={2.5}/><span style={{color:'#fff',fontSize:13,fontWeight:700}}>{leftLabel}</span></div>
+        </div>}
+        {renderCard(top,dx)}
+      </div>
+    </div>
+  </div>;
+}
+
+/* ===== DAY STRIP ===== */
+function DayStrip({habit,dates30,onToggle}){
+  const{dark}=useT();
+  const P=dark?PD:PL;
+  const p=P[Math.min(Math.max(habit.colorIdx||0,0),P.length-1)];
+  const tday=tod();
+  const ref=useRef(null);
+  useEffect(()=>{if(ref.current)ref.current.scrollLeft=ref.current.scrollWidth;},[]);
+  return <div ref={ref} style={{display:'flex',gap:3,overflowX:'auto',paddingBottom:2,paddingRight:16,scrollbarWidth:'none',msOverflowStyle:'none'}} onTouchStart={e=>e.stopPropagation()} onTouchMove={e=>e.stopPropagation()}>
+    {dates30.map((date,i)=>{
+      const dd=habit.days?.find(x=>x.date===date);const ddState=dd?.state||null;
+      const isT=date===tday;
+      const d=new Date(date);
+      const showM=i===0||new Date(dates30[i-1]).getMonth()!==d.getMonth();
+      return <div key={date} style={{display:'flex',flexDirection:'column',alignItems:'center',flexShrink:0,width:26}}>
+        <div style={{fontSize:7,fontWeight:700,color:p.sub,height:10,display:'flex',alignItems:'center',opacity:showM?.9:0,textTransform:'uppercase'}}>{showM?MOS[d.getMonth()]:''}</div>
+        <div style={{fontSize:8,color:isT?p.text:p.sub,fontWeight:isT?700:400,marginBottom:1,lineHeight:1}}>{WD[d.getDay()]}</div>
+        <div onClick={()=>onToggle(habit.id,date)} style={{width:22,height:22,borderRadius:6,cursor:'pointer',flexShrink:0,border:'1.5px solid '+(ddState==='done'?p.dot:ddState==='failed'?'#ff453a':dd?.value>0?p.dot+'80':'rgba(128,128,128,.18)'),background:ddState==='done'?p.dot:ddState==='failed'?'rgba(255,69,58,.85)':dd?.value>0?(p.dot+'22'):dark?'rgba(255,255,255,.04)':'rgba(255,255,255,.4)',display:'flex',alignItems:'center',justifyContent:'center',outline:isT?'2px solid '+(ddState==='failed'?'#ff453a':p.dot):'none',outlineOffset:1,transition:'all .15s'}}>
+          {ddState==='done'&&!dd?.value&&<IcCheck c="#fff" s={9} sw={2.5}/>}
+          {ddState==='done'&&dd?.value>0&&<span style={{fontSize:7,fontWeight:700,color:'#fff',lineHeight:1}}>{dd.value>99?'99+':Math.round(dd.value)}</span>}
+          {ddState==='failed'&&<IcX c="#fff" s={8} sw={2.5}/>}
+          {!ddState&&dd?.value>0&&<span style={{fontSize:7,fontWeight:700,color:p.text,lineHeight:1}}>{dd.value>99?'99+':Math.round(dd.value)}</span>}
+        </div>
+      </div>;
+    })}
+  </div>;
+}
+
+/* ===== CALENDAR ===== */
+function CalModal({habit,onClose,onToggle}){
+  const{T,dark}=useT();
+  const P=dark?PD:PL;
+  const p=P[Math.min(Math.max(habit.colorIdx||0,0),P.length-1)];
+  const tday=tod();
+  const now=new Date();
+  const[yr,setYr]=useState(now.getFullYear());
+  const[mo,setMo]=useState(now.getMonth());
+  const canNext=!(yr===now.getFullYear()&&mo===now.getMonth());
+  const fd=new Date(yr,mo,1).getDay();
+  const dim=new Date(yr,mo+1,0).getDate();
+  const cells=[];
+  for(let i=0;i<fd;i++)cells.push(null);
+  for(let d=1;d<=dim;d++){const date=new Date(yr,mo,d).toDateString();cells.push({d,date,checked:habit.days?.find(x=>x.date===date)?.state==='done',isT:date===tday});}
+  function prev(){if(mo===0){setMo(11);setYr(y=>y-1);}else setMo(m=>m-1);}
+  function next(){if(!canNext)return;if(mo===11){setMo(0);setYr(y=>y+1);}else setMo(m=>m+1);}
+  return <Sheet onClose={onClose}>
+    <div style={{fontSize:11,fontWeight:700,letterSpacing:1.8,color:T.muted,textTransform:'uppercase',marginBottom:8}}>{habit.text}</div>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+      <button onClick={prev} style={{width:34,height:34,borderRadius:10,border:'0.5px solid '+T.sep,background:'rgba(120,120,128,.08)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><IcChevL c={T.text} s={18}/></button>
+      <div style={{fontSize:17,fontWeight:700,color:T.text}}>{MOF[mo]} {yr}</div>
+      <button onClick={next} style={{width:34,height:34,borderRadius:10,border:'0.5px solid '+T.sep,background:'rgba(120,120,128,.08)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',opacity:canNext?1:.3}}><IcChevR c={T.text} s={18}/></button>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3,marginBottom:5}}>
+      {WD.map(d=><div key={d} style={{textAlign:'center',fontSize:11,color:T.muted,fontWeight:600,padding:'2px 0'}}>{d}</div>)}
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:3}}>
+      {cells.map((c,i)=>c===null?<div key={i}/>:
+        <div key={i} onClick={()=>onToggle(habit.id,c.date)} style={{aspectRatio:'1',borderRadius:9,background:c.state==='done'?p.dot:c.state==='failed'?'rgba(255,69,58,.8)':c.isT?(p.dot+'22'):T.ctrl,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',transition:'all .15s',outline:c.isT?'2px solid '+(c.state==='failed'?'#ff453a':p.dot):'none',outlineOffset:2}}>
+          <span style={{fontSize:15,fontWeight:c.isT?700:400,color:(c.state)?'#fff':T.text}}>{c.d}</span>
+        </div>
+      )}
+    </div>
+  </Sheet>;
+}
+
+/* ===== TAB 1: DAILY ===== */
+/* ===== TASK LISTS (FOLDERS) ===== */
+const LIST_COLORS=['#9b8fcc','#68c4a0','#e8906a','#d4b84a','#72aad8','#e07aaa'];
+function TaskListsView({tasks,setTasks,lists,setLists,dark,T}){
+  const P=dark?PD:PL;
+  const[expandedId,setExpandedId]=useState(null);
+  const[addingList,setAddingList]=useState(false);
+  const[newListName,setNewListName]=useState('');
+  const[addingToList,setAddingToList]=useState(null); // list id
+  const[newTaskText,setNewTaskText]=useState('');
+  const pof=n=>P[Math.min(Math.max(n||0,0),P.length-1)];
+
+  function createList(){
+    if(!newListName.trim())return;
+    const id=Date.now().toString();
+    setLists(ls=>[...ls,{id,name:newListName.trim(),colorIdx:ls.length%6}]);
+    setNewListName('');setAddingList(false);setExpandedId(id);
+  }
+  function addTaskToList(listId){
+    if(!newTaskText.trim())return;
+    setTasks(ts=>[...ts,{id:Date.now(),text:newTaskText.trim(),notes:'',recur:'none',done:false,reps:0,colorIdx:0,listId}]);
+    setNewTaskText('');setAddingToList(null);
+  }
+  function toggleTaskDone(id){
+    setTasks(ts=>ts.map(t=>{if(t.id!==id)return t;const done=!t.done;return{...t,done,reps:done?t.reps+1:Math.max(0,t.reps-1)};}));
+  }
+  function delTask(id){setTasks(ts=>ts.filter(t=>t.id!==id));}
+  function delList(id){setLists(ls=>ls.filter(l=>l.id!==id));setTasks(ts=>ts.filter(t=>t.listId!==id));}
+
+  return <div style={{flex:1,overflowY:'auto',paddingBottom:8}}>
+    {lists.map(list=>{
+      const listTasks=tasks.filter(t=>t.listId===list.id);
+      const done=listTasks.filter(t=>t.done).length;
+      const expanded=expandedId===list.id;
+      const p=pof(list.colorIdx);
+      return <div key={list.id} style={{background:p.bg,borderRadius:22,marginBottom:12,overflow:'hidden',boxShadow:'0 4px 20px rgba(0,0,0,.07)'}}>
+        {/* Deck picker вЂ” assign card to deck */}
+    {moveCard&&<Sheet onClose={()=>setMoveCard(null)}>
+      <SectionLabel>РџРµСЂРµРјРµСЃС‚РёС‚СЊ РІ РєРѕР»РѕРґСѓ</SectionLabel>
+      <div style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:16,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{moveCard.text}</div>
+      {lists.map(l=>{
+        const lp=(dark?PD:PL)[l.colorIdx||0];
+        const isCurrentDeck=moveCard.listId===l.id;
+        return <div key={l.id} onClick={()=>{setTasks(ts=>ts.map(t=>t.id===moveCard.id?{...t,listId:l.id}:t));setMoveCard(null);}} style={{display:'flex',alignItems:'center',gap:10,padding:'12px 0',borderBottom:'0.5px solid '+T.sep,cursor:'pointer'}}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill={lp.dot}><path d="M2 6a2 2 0 0 1 2-2h4l2 2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6z" opacity=".9"/></svg>
+          <span style={{flex:1,fontSize:16,fontWeight:600,color:T.text}}>{l.name}</span>
+          {isCurrentDeck&&<IcCheck c={lp.dot} s={16} sw={2.5}/>}
+        </div>;
+      })}
+      {moveCard.listId&&<GlassBtn onClick={()=>{setTasks(ts=>ts.map(t=>t.id===moveCard.id?{...t,listId:undefined}:t));setMoveCard(null);}} style={{width:'100%',marginTop:12,padding:12,justifyContent:'center',display:'flex',gap:6}}>
+        РЈР±СЂР°С‚СЊ РёР· РєРѕР»РѕРґС‹
+      </GlassBtn>}
+      {lists.length===0&&<div style={{color:T.muted,fontSize:14,textAlign:'center',paddingTop:16}}>РЎРЅР°С‡Р°Р»Р° СЃРѕР·РґР°Р№ РєРѕР»РѕРґСѓ РІ СЂРµР¶РёРјРµ РЎРїРёСЃРѕРє</div>}
+    </Sheet>}
+    {/* Header */}
+        <div onClick={()=>setExpandedId(expanded?null:list.id)} style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',cursor:'pointer'}}>
+          <div style={{width:10,height:10,borderRadius:'50%',background:p.dot,flexShrink:0}}/>
+          <div style={{flex:1}}>
+            <div style={{fontSize:16,fontWeight:700,color:p.text}}>{list.name}</div>
+            <div style={{fontSize:12,color:p.sub,marginTop:1}}>{done}/{listTasks.length} РІС‹РїРѕР»РЅРµРЅРѕ</div>
+          </div>
+          {/* Progress bar */}
+          {listTasks.length>0&&<div style={{width:44,height:4,borderRadius:2,background:'rgba(0,0,0,.1)',overflow:'hidden'}}>
+            <div style={{width:(done/listTasks.length*100)+'%',height:'100%',background:p.dot,borderRadius:2,transition:'width .3s'}}/>
+          </div>}
+          <div style={{fontSize:12,color:p.sub,transform:'rotate('+(expanded?-90:0)+'deg)',transition:'transform .2s'}}>вЂє</div>
+          <button onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();if(window.confirm('РЈРґР°Р»РёС‚СЊ РєРѕР»РѕРґСѓ Рё РІСЃРµ Р·Р°РґР°С‡Рё?'))delList(list.id);}} style={{background:'none',border:'none',color:p.dot,opacity:.4,cursor:'pointer',fontSize:16,padding:'0 2px'}}>вњ•</button>
+        </div>
+        {/* Tasks */}
+        {expanded&&<div style={{borderTop:'1px solid rgba(0,0,0,.06)',padding:'8px 16px 12px'}}>
+          {listTasks.map(task=><div key={task.id} style={{display:'flex',gap:10,alignItems:'center',padding:'7px 0',borderBottom:'0.5px solid rgba(0,0,0,.05)'}}>
+            <div onClick={()=>toggleTaskDone(task.id)} style={{width:22,height:22,borderRadius:'50%',flexShrink:0,cursor:'pointer',border:'2px solid '+(task.done?'transparent':p.dot),background:task.done?p.dot:'transparent',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .2s'}}>
+              {task.done&&<IcCheck c="#fff" s={10} sw={2.5}/>}
+            </div>
+            <div style={{flex:1,fontSize:15,fontWeight:500,color:p.text,textDecoration:task.done?'line-through':'none',opacity:task.done?0.5:1}}>{task.text}</div>
+            <button onClick={()=>delTask(task.id)} style={{background:'none',border:'none',color:p.dot,opacity:.35,cursor:'pointer',fontSize:14,padding:'0 2px'}}>вњ•</button>
+          </div>)}
+          {/* Add task to list */}
+          {addingToList===list.id
+            ?<div style={{display:'flex',gap:8,marginTop:10}}>
+                <input autoFocus value={newTaskText} onChange={e=>setNewTaskText(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')addTaskToList(list.id);if(e.key==='Escape'){setAddingToList(null);setNewTaskText('');}}} placeholder="РќРѕРІР°СЏ Р·Р°РґР°С‡Р°..." style={{flex:1,border:'none',borderBottom:'1px solid '+p.dot,outline:'none',background:'transparent',fontSize:15,color:p.text,padding:'4px 0'}}/>
+                <button onClick={()=>addTaskToList(list.id)} style={{background:p.dot,border:'none',borderRadius:9,padding:'5px 12px',color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer'}}>Р”РѕР±Р°РІРёС‚СЊ</button>
+                <button onClick={()=>{setAddingToList(null);setNewTaskText('');}} style={{background:'none',border:'none',color:p.sub,fontSize:18,cursor:'pointer'}}>вњ•</button>
+              </div>
+            :<button onClick={()=>setAddingToList(list.id)} style={{marginTop:10,background:'none',border:'none',color:p.sub,fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',gap:5,padding:0}}><IcPlus c={p.sub} s={14}/>Р”РѕР±Р°РІРёС‚СЊ Р·Р°РґР°С‡Сѓ</button>}
+        </div>}
+      </div>;
+    })}
+    {/* Create list */}
+    {addingList
+      ?<div style={{background:T.glass,backdropFilter:'blur(16px)',borderRadius:20,padding:'14px 16px',border:'0.5px solid '+T.sep,animation:'scaleIn .2s ease'}}>
+          <input autoFocus value={newListName} onChange={e=>setNewListName(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')createList();if(e.key==='Escape'){setAddingList(false);setNewListName('');}}} placeholder="РќР°Р·РІР°РЅРёРµ РєРѕР»РѕРґС‹..." style={{width:'100%',border:'none',outline:'none',fontSize:16,background:'transparent',color:T.text,marginBottom:12}}/>
+          <div style={{display:'flex',gap:6,marginBottom:12}}>
+            {LIST_COLORS.map((c,i)=><div key={i} onClick={()=>setLists(ls=>{if(ls.find(l=>l.colorIdx===i))return ls;return ls;})} style={{width:26,height:26,borderRadius:'50%',background:c,cursor:'pointer'}}/>)}
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={createList} style={{flex:1,padding:10,borderRadius:12,border:'none',background:T.pill,color:T.pillTxt,fontSize:14,fontWeight:600,cursor:'pointer'}}>РЎРѕР·РґР°С‚СЊ</button>
+            <button onClick={()=>{setAddingList(false);setNewListName('');}} style={{padding:10,borderRadius:12,border:'0.5px solid '+T.sep,background:'transparent',color:T.ctrlTxt,fontSize:14,cursor:'pointer'}}>РћС‚РјРµРЅР°</button>
+          </div>
+        </div>
+      :<button onClick={()=>setAddingList(true)} style={{width:'100%',padding:'12px',borderRadius:16,border:'1.5px dashed rgba(128,128,128,.25)',background:'transparent',color:T.muted,fontSize:14,fontWeight:500,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:7}}><IcPlus c={T.muted} s={14}/>РќРѕРІР°СЏ РєРѕР»РѕРґР°</button>}
+  </div>;
+}
+
+
+function FolderIcon({color,size=22}){
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke="none">
+    <path d="M2 6a2 2 0 0 1 2-2h4l2 2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6z" opacity=".9"/>
+  </svg>;
+}
+
+function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDark}){
+  const{T}=useT();
+  const P=dark?PD:PL;
+  const pof=n=>P[Math.min(Math.max(n||0,0),P.length-1)];
+  const[recur,setRecur]=useState('none');
+  const[addText,setAddText]=useState('');
+  const[adding,setAdding]=useState(false);
+  const[listView,setListView]=useState(false);
+  const[sp,setSp]=useState(null);
+  const[edit,setEdit]=useState(null);
+  const[openFolderId,setOpenFolderId]=useState(null);
+  const[moveCard,setMoveCard]=useState(null); // card to move to a deck
+  const[addingFolder,setAddingFolder]=useState(false);
+  const[newFolderName,setNewFolderName]=useState('');
+  const[editDeck,setEditDeck]=useState(null);
+  const[editDeckName,setEditDeckName]=useState('');
+  const[editDeckColorIdx,setEditDeckColorIdx]=useState(0);
+  const rl={none:null,daily:'в†є РљР°Р¶РґС‹Р№ РґРµРЅСЊ',weekly:'в†є РљР°Р¶РґСѓСЋ РЅРµРґ.',monthly:'в†є РљР°Р¶РґС‹Р№ РјРµСЃ.',yearly:'в†є РљР°Р¶РґС‹Р№ РіРѕРґ'};
+
+  const activeTasks=openFolderId
+    ?tasks.filter(t=>t.listId===openFolderId)
+    :tasks.filter(t=>!t.listId);
+  const undone=activeTasks.filter(t=>!t.done);
+  const done=activeTasks.filter(t=>t.done);
+  const openFolder=lists.find(l=>l.id===openFolderId);
+
+  function add(){
+    if(!addText.trim())return;
+    const newTask={id:Date.now(),text:addText.trim(),notes:'',recur,done:false,reps:0,colorIdx:0};
+    if(openFolderId)newTask.listId=openFolderId;
+    setTasks(ts=>[newTask,...ts]);setAddText('');setAdding(false);
+  }
+  function swR(card){setTasks(ts=>ts.map(t=>t.id===card.id?{...t,done:true,reps:t.reps+1,lastDone:new Date().toISOString()}:t));}
+  function swL(card){setTasks(ts=>{const o=ts.filter(t=>t.id!==card.id);return[...o.filter(t=>!t.done),card,...o.filter(t=>t.done)];});}
+  function shuffle(){
+    if(sp||undone.length<2)return;
+    setSp('fan');
+    setTimeout(()=>{
+      setTasks(ts=>{
+        const a=[...ts];const ids=undone.map(t=>t.id);
+        const idxs=ids.map(id=>a.findIndex(t=>t.id===id));
+        const vals=idxs.map(i=>a[i]);
+        for(let i=vals.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[vals[i],vals[j]]=[vals[j],vals[i]];}
+        idxs.forEach((idx,i)=>a[idx]=vals[i]);return a;
+      });
+      setSp('collapse');setTimeout(()=>setSp(null),500);
+    },600);
+  }
+  function saveEdit(id,text,notes,recur,ci){setTasks(ts=>ts.map(t=>t.id===id?{...t,text,notes,recur,colorIdx:ci}:t));setEdit(null);}
+  function del(id){setTasks(ts=>ts.filter(t=>t.id!==id));setEdit(null);}
+  function toggle(id){setTasks(ts=>ts.map(t=>{if(t.id!==id)return t;const d=!t.done;return{...t,done:d,reps:d?t.reps+1:Math.max(0,t.reps-1),lastDone:d?new Date().toISOString():t.lastDone};}));}
+  function createFolder(){
+    if(!newFolderName.trim())return;
+    const id=Date.now().toString();
+    setLists(ls=>[...ls,{id,name:newFolderName.trim(),colorIdx:ls.length%6}]);
+    setNewFolderName('');setAddingFolder(false);
+  }
+  function saveEditDeck(){
+    if(!editDeckName.trim())return;
+    setLists(ls=>ls.map(l=>l.id===editDeck.id?{...l,name:editDeckName.trim(),colorIdx:editDeckColorIdx}:l));
+    setEditDeck(null);
+  }
+  function delFolder(id){
+    if(!window.confirm('РЈРґР°Р»РёС‚СЊ РєРѕР»РѕРґСѓ Рё РІСЃРµ Р·Р°РґР°С‡Рё?'))return;
+    setLists(ls=>ls.filter(l=>l.id!==id));
+    setTasks(ts=>ts.filter(t=>t.listId!==id));
+    if(openFolderId===id)setOpenFolderId(null);
+  }
+
+  return <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
+    {edit&&<EditTaskSheet task={edit} onSave={(t,n,r,c)=>saveEdit(edit.id,t,n,r,c)} onDelete={()=>del(edit.id)} onToHabit={()=>{convertToHabit(edit.id);setEdit(null);}} onClose={()=>setEdit(null)}/>}
+    {/* Header */}
+    <div style={{flexShrink:0,padding:'18px 0 12px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0,flex:1}}>
+        {openFolderId&&<button onClick={()=>setOpenFolderId(null)} style={{width:36,height:36,borderRadius:11,border:'0.5px solid '+T.sep,background:T.ctrl,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,backdropFilter:BL,WebkitBackdropFilter:BL}}>
+          <IcChevL c={T.ctrlTxt} s={18} sw={2}/>
+        </button>}
+        <div style={{minWidth:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            {openFolder&&<FolderIcon color={P[openFolder.colorIdx||0].dot} size={22}/>}
+            <span style={{fontSize:26,fontWeight:700,letterSpacing:-.5,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{openFolder?openFolder.name:'Р”РµР»Р°'}</span>
+          </div>
+          <div style={{fontSize:13,color:T.muted,fontWeight:500,marginTop:2}}>{undone.length} РѕСЃС‚Р°Р»РѕСЃСЊ{openFolder?' В· РєРѕР»РѕРґР°':done.length>0?' В· '+done.length+' СЃРєСЂС‹С‚Рѕ':''}</div>
+        </div>
+      </div>
+      <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
+        {!listView&&undone.length>1&&<GlassBtn onClick={shuffle}><IcShuffle c={T.ctrlTxt} s={15}/></GlassBtn>}
+        {activeTasks.length>0&&<GlassBtn onClick={()=>{if(window.confirm('РЈРґР°Р»РёС‚СЊ РІСЃРµ?'))setTasks(ts=>ts.filter(t=>openFolderId?t.listId!==openFolderId:!!t.listId));}}><IcTrash c="#ff453a" s={15}/></GlassBtn>}
+        <Pill onClick={()=>setListView(v=>!v)} active={listView}>
+          {listView?<IcStack c={T.pillTxt} s={14}/>:<IcList c={T.ctrlTxt} s={14}/>}
+          {listView?'РЎС‚РѕРїРєР°':'РЎРїРёСЃРѕРє'}
+        </Pill>
+        <button onClick={onToggleDark} style={{width:34,height:34,borderRadius:10,border:'0.5px solid '+T.sep,background:T.ctrl,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:BL,WebkitBackdropFilter:BL,flexShrink:0}}>
+          {dark?<IcSun c={T.ctrlTxt} s={16} sw={1.8}/>:<IcMoon c={T.ctrlTxt} s={16} sw={1.8}/>}
+        </button>
+        <PlusBtn onClick={()=>setAdding(v=>!v)} active={adding}/>
+      </div>
+    </div>
+
+    {/* Add form */}
+    {adding&&<div style={{flexShrink:0,background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:20,padding:18,marginBottom:14,border:'0.5px solid '+T.sep,animation:'scaleIn .2s ease'}}>
+      <input value={addText} onChange={e=>setAddText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} placeholder="Р§С‚Рѕ РЅСѓР¶РЅРѕ СЃРґРµР»Р°С‚СЊ?" style={{width:'100%',border:'none',outline:'none',fontSize:17,background:'transparent',marginBottom:14,color:T.text}}/>
+      <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:14}}>{RECURS.map(r=><GlassBtn key={r.v} onClick={()=>setRecur(r.v)} style={recur===r.v?{background:T.pill,color:T.pillTxt}:{}}>{r.l}</GlassBtn>)}</div>
+      <button onClick={add} style={{width:'100%',padding:12,borderRadius:13,border:'none',background:T.pill,color:T.pillTxt,fontSize:15,fontWeight:600,cursor:'pointer'}}>Р”РѕР±Р°РІРёС‚СЊ</button>
+    </div>}
+
+
+    {/* Stack view */}
+    {!listView&&<div style={{flex:1,position:'relative',overflow:'hidden'}}>
+      {activeTasks.length===0
+        ?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:T.muted}}>
+            <IcSun c={T.muted} s={48}/>
+            <div style={{fontSize:16,fontWeight:500,marginTop:12}}>{openFolder?'РљРѕР»РѕРґР° РїСѓСЃС‚Р°':'РќРµС‚ Р·Р°РґР°С‡ вЂ” РЅР°Р¶РјРё +'}</div>
+          </div>
+        :undone.length===0
+        ?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:10}}>
+            <div style={{fontSize:13,color:T.muted,fontWeight:500}}>РЎС‚РѕР» РїСѓСЃС‚</div>
+            {done.length>0&&<GlassBtn onClick={()=>setTasks(ts=>ts.map(t=>activeTasks.find(a=>a.id===t.id)?{...t,done:false}:t))} style={{marginTop:6}}>в†є Р’РµСЂРЅСѓС‚СЊ {done.length}</GlassBtn>}
+          </div>
+        :<>
+          <div style={{position:'absolute',top:0,left:0,right:0,zIndex:10,display:'flex',justifyContent:'space-between',alignItems:'center',padding:'0 8px',pointerEvents:'none'}}>
+            <span style={{fontSize:12,fontWeight:600,color:T.muted}}>в†ђ РџРѕР·Р¶Рµ</span>
+            <span style={{fontSize:12,fontWeight:600,color:T.muted}}>Р“РѕС‚РѕРІРѕ в†’</span>
+          </div>
+          <div style={{position:'absolute',top:22,left:0,right:0,bottom:0}}>
+            <TinderStack items={undone} onRight={swR} onLeft={swL} onTap={setEdit} onUp={card=>setMoveCard(card)} shufflePhase={sp} renderCard={(card)=>{
+              const p=pof(card.colorIdx);
+              return <div style={{padding:'28px 24px',height:'100%',display:'flex',flexDirection:'column',justifyContent:'space-between'}}>
+                <div style={{flex:1,minHeight:0}}>
+                  {card.listId&&!openFolderId&&lists.find(l=>l.id===card.listId)&&<div style={{fontSize:10,color:p.sub,fontWeight:600,marginBottom:6,display:'flex',alignItems:'center',gap:3,opacity:.55,textTransform:'uppercase',letterSpacing:.8}}><svg width='10' height='10' viewBox='0 0 24 24' fill={p.dot}><path d='M2 6a2 2 0 0 1 2-2h4l2 2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6z' opacity='.8'/></svg>{lists.find(l=>l.id===card.listId).name}</div>}
+                  {card.recur!=='none'&&<div style={{fontSize:12,color:p.sub,fontWeight:600,marginBottom:8}}>{rl[card.recur]}</div>}
+                  <div style={{fontSize:28,fontWeight:700,color:p.text,lineHeight:1.3,letterSpacing:-.4,marginBottom:card.notes?12:0}}>{card.text}</div>
+                  {card.notes&&<div style={{fontSize:14,color:p.sub,lineHeight:1.55,marginTop:2}}>{card.notes}</div>}
+                </div>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0,marginTop:16}}>
+                  <div style={{display:'flex',gap:5}}>{undone.slice(0,7).map((_,i)=><div key={i} style={{width:i===0?20:7,height:6,borderRadius:3,background:i===0?p.dot:(p.dot+'40'),transition:'all .3s'}}/>)}</div>
+                  <div style={{fontSize:11,color:p.sub,opacity:.45,display:'flex',alignItems:'center',gap:3}}><IcPencil c={p.sub} s={11}/>РёР·РјРµРЅРёС‚СЊ</div>
+                </div>
+              </div>;
+            }}/>
+          </div>
+          {done.length>0&&<div style={{position:'absolute',bottom:8,right:8,background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:12,padding:'5px 11px',border:'0.5px solid '+T.sep}}><span style={{fontSize:12,fontWeight:600,color:T.sub}}>вњ“ {done.length}</span></div>}
+        </>}
+    </div>}
+
+    {/* Deck chips вЂ” only in stack mode */}
+    {!listView&&lists.length>0&&(openFolderId||tasks.filter(t=>t.listId).length>0)&&<div style={{flexShrink:0,marginBottom:8,display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
+      <div onClick={()=>setOpenFolderId(null)} style={{borderRadius:12,padding:'5px 10px',cursor:'pointer',display:'flex',alignItems:'center',gap:5,background:!openFolderId?T.pill:'rgba(128,128,128,.07)',border:'0.5px solid '+(openFolderId?'rgba(128,128,128,.18)':'transparent')}}>
+        <span style={{fontSize:12,fontWeight:700,color:!openFolderId?T.pillTxt:T.muted}}>Р’СЃРµ</span>
+      </div>
+      {lists.map(l=>{
+        const lp=P[l.colorIdx||0];
+        const cnt=tasks.filter(t=>t.listId===l.id&&!t.done).length;
+        return <div key={l.id} onClick={()=>setOpenFolderId(l.id)}
+          style={{borderRadius:12,padding:'5px 10px',cursor:'pointer',display:'flex',alignItems:'center',gap:5,background:openFolderId===l.id?lp.dot:'rgba(128,128,128,.07)',border:'0.5px solid rgba(128,128,128,.15)'}}>
+          <span style={{fontSize:12,fontWeight:700,color:openFolderId===l.id?'#fff':lp.text}}>{l.name}</span>
+          {cnt>0&&<span style={{fontSize:10,color:openFolderId===l.id?'rgba(255,255,255,.7)':lp.sub}}>({cnt})</span>}
+        </div>;
+      })}
+    </div>}
+
+    {/* List view вЂ” shows decks + root tasks */}
+    {listView&&<div className='no-select' style={{flex:1,overflowY:'auto',paddingTop:8,paddingBottom:8}}>
+      {/* Root tasks (no deck) */}
+      {!openFolderId&&<>
+        <SortableList
+          items={lists}
+          keyFn={l=>l.id}
+          gap={8}
+          onReorder={(from,to)=>setLists(ls=>{const a=[...ls];const item=a.splice(from,1)[0];a.splice(to,0,item);return a;})}
+          renderItem={(l,li,isDrag)=>{
+            const lp=P[l.colorIdx||0];
+            const lTasks=tasks.filter(t=>t.listId===l.id);
+            const lUndone=lTasks.filter(t=>!t.done).length;
+            return <div style={{marginBottom:4}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 14px',background:lp.bg,borderRadius:18,cursor:'pointer',opacity:isDrag?.92:1}}
+                onClick={()=>setOpenFolderId(l.id)}>
+                {/* Drag grip */}
+                <div style={{opacity:.25,flexShrink:0}}>
+                  <svg width="8" height="14" viewBox="0 0 8 14" fill={lp.text}><circle cx="2" cy="2" r="1.3"/><circle cx="2" cy="7" r="1.3"/><circle cx="2" cy="12" r="1.3"/><circle cx="6.5" cy="2" r="1.3"/><circle cx="6.5" cy="7" r="1.3"/><circle cx="6.5" cy="12" r="1.3"/></svg>
+                </div>
+                <FolderIcon color={lp.dot} size={16}/>
+                <span style={{fontSize:15,fontWeight:700,color:lp.text,flex:1}}>{l.name}</span>
+                <span style={{fontSize:12,color:lp.sub}}>{lUndone}/{lTasks.length}</span>
+                <div style={{width:36,height:3,borderRadius:2,background:'rgba(0,0,0,.12)',overflow:'hidden'}}>
+                  <div style={{width:(lTasks.length?((lTasks.length-lUndone)/lTasks.length*100):0)+'%',height:'100%',background:lp.dot,borderRadius:2}}/>
+                </div>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={lp.sub} strokeWidth="2" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                <button onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setEditDeckName(l.name);setEditDeckColorIdx(l.colorIdx||0);setEditDeck(l);}} style={{background:'none',border:'none',cursor:'pointer',display:'flex',opacity:.5,padding:2}}><IcPencil c={lp.sub} s={13}/></button>
+              </div>
+            </div>;
+          }}
+        />
+        {/* New deck button */}
+        {addingFolder
+          ?<div style={{display:'flex',gap:6,alignItems:'center',background:T.ctrl,borderRadius:14,padding:'10px 14px',border:'0.5px solid '+T.sep,marginBottom:12}}>
+              <FolderIcon color={T.muted} size={14}/>
+              <input autoFocus value={newFolderName} onChange={e=>setNewFolderName(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')createFolder();if(e.key==='Escape'){setAddingFolder(false);setNewFolderName('');}}} placeholder="РќР°Р·РІР°РЅРёРµ РєРѕР»РѕРґС‹..." style={{border:'none',outline:'none',background:'transparent',fontSize:15,color:T.text,flex:1}}/>
+              <button onClick={createFolder} style={{background:T.pill,border:'none',borderRadius:8,padding:'4px 10px',color:T.pillTxt,fontSize:13,fontWeight:700,cursor:'pointer'}}>OK</button>
+            </div>
+          :<div onClick={()=>setAddingFolder(true)} style={{background:'rgba(128,128,128,.06)',borderRadius:14,padding:'10px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:8,border:'1px dashed rgba(128,128,128,.18)',marginBottom:12}}>
+              <IcPlus c={T.muted} s={14}/><span style={{fontSize:14,color:T.muted,fontWeight:500}}>РќРѕРІР°СЏ РєРѕР»РѕРґР°</span>
+            </div>}
+        {/* Root tasks separator */}
+        {tasks.filter(t=>!t.listId).length>0&&lists.length>0&&<div style={{fontSize:11,fontWeight:700,letterSpacing:1.5,color:T.muted,textTransform:'uppercase',marginBottom:8,marginTop:4,paddingLeft:4}}>Р‘РµР· РєРѕР»РѕРґС‹</div>}
+      </>}
+      {/* Edit deck sheet */}
+      {editDeck&&<Sheet onClose={()=>setEditDeck(null)}>
+        <SectionLabel>РљРѕР»РѕРґР°</SectionLabel>
+        <input value={editDeckName} onChange={e=>setEditDeckName(e.target.value)} style={{width:'100%',border:'none',borderBottom:'1px solid '+T.sep,outline:'none',fontSize:18,fontWeight:700,background:'transparent',color:T.text,marginBottom:18,paddingBottom:8}} onKeyDown={e=>e.key==='Enter'&&saveEditDeck()}/>
+        <SectionLabel>Р¦РІРµС‚</SectionLabel>
+        <div style={{marginBottom:20}}><Swatches value={editDeckColorIdx} onChange={setEditDeckColorIdx}/></div>
+        <button onClick={saveEditDeck} style={{width:'100%',padding:13,borderRadius:14,border:'none',background:T.pill,color:T.pillTxt,fontSize:16,fontWeight:600,cursor:'pointer',marginBottom:10}}>РЎРѕС…СЂР°РЅРёС‚СЊ</button>
+        <GlassBtn onClick={()=>{delFolder(editDeck.id);setEditDeck(null);}} danger style={{width:'100%',padding:12,justifyContent:'center',display:'flex',gap:6}}><IcTrash c="#ff3b30" s={15}/>РЈРґР°Р»РёС‚СЊ РєРѕР»РѕРґСѓ</GlassBtn>
+      </Sheet>}
+      {/* Tasks (root or inside open deck) */}
+      {activeTasks.length===0&&!addingFolder&&<div style={{textAlign:'center',paddingTop:32,color:T.muted,fontSize:16}}>{openFolderId?'РљРѕР»РѕРґР° РїСѓСЃС‚Р°':'РќРµС‚ Р·Р°РґР°С‡ Р±РµР· РєРѕР»РѕРґС‹'}</div>}
+      <SortableList items={[...undone,...done]} keyFn={t=>t.id} gap={12}
+        onReorder={(from,to)=>{
+          setTasks(ts=>{
+            const a=[...ts];const all=[...undone,...done];
+            const item=all.splice(from,1)[0];all.splice(to,0,item);
+            const newIds=new Map(all.map((t,i)=>[t.id,i]));
+            return [...a].sort((a,b)=>(newIds.get(a.id)??999)-(newIds.get(b.id)??999));
+          });
+        }}
+        renderItem={(task,idx,isDrag)=>{
+          const p=pof(task.colorIdx);
+          return <div style={{background:p.bg,borderRadius:22,padding:'14px 16px'}}>
+            <div style={{display:'flex',gap:10,alignItems:'center'}}>
+              <div style={{width:16,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,opacity:.2}}>
+                <svg width="8" height="14" viewBox="0 0 8 14" fill={p.text}><circle cx="2" cy="2" r="1.3"/><circle cx="2" cy="7" r="1.3"/><circle cx="2" cy="12" r="1.3"/><circle cx="6.5" cy="2" r="1.3"/><circle cx="6.5" cy="7" r="1.3"/><circle cx="6.5" cy="12" r="1.3"/></svg>
+              </div>
+              <div onPointerDown={e=>e.stopPropagation()} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();toggle(task.id);}} onClick={e=>{e.stopPropagation();toggle(task.id);}} style={{width:24,height:24,borderRadius:'50%',flexShrink:0,cursor:'pointer',border:'2px solid '+(task.done?'transparent':p.dot),background:task.done?p.dot:'transparent',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .2s',touchAction:'manipulation',WebkitTapHighlightColor:'transparent'}}>
+                {task.done&&<IcCheck c="#fff" s={11} sw={2.5}/>}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:15,fontWeight:600,color:p.text,textDecoration:task.done?'line-through':'none',opacity:task.done?0.5:1,lineHeight:1.3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{task.text}</div>
+                {task.notes&&!task.done&&<div style={{fontSize:12,color:p.sub,marginTop:2,lineHeight:1.4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{task.notes}</div>}
+              </div>
+              <button onPointerDown={e=>e.stopPropagation()} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();setEdit(task);}} onClick={e=>{e.stopPropagation();setEdit(task);}} style={{background:'none',border:'none',cursor:'pointer',display:'flex',opacity:.55,touchAction:'manipulation',WebkitTapHighlightColor:'transparent',flexShrink:0}}><IcPencil c={p.sub} s={15}/></button>
+              <button onPointerDown={e=>e.stopPropagation()} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();del(task.id);}} onClick={e=>{e.stopPropagation();del(task.id);}} style={{background:'none',border:'none',cursor:'pointer',display:'flex',opacity:.3,touchAction:'manipulation',WebkitTapHighlightColor:'transparent',flexShrink:0}}><IcX c={p.dot} s={15}/></button>
+            </div>
+          </div>;
+        }}
+      />
+      {done.length>0&&<GlassBtn onClick={()=>setTasks(ts=>ts.map(t=>activeTasks.find(a=>a.id===t.id&&t.done)?{...t,done:false}:t))} style={{width:'100%',padding:12,marginTop:4,justifyContent:'center'}}>в†є Р’РµСЂРЅСѓС‚СЊ РІС‹РїРѕР»РЅРµРЅРЅС‹Рµ</GlassBtn>}
+    </div>}
+  </div>;
+}
+
+/* ===== SORTABLE LIST вЂ” proper iOS-style drag reorder ===== */
+function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
+  const[src,setSrc]=useState(null);
+  const[tgt,setTgt]=useState(null);
+  const srcRef=useRef(null);
+  const tgtRef=useRef(null);
+  const refs=useRef([]);
+  const meas=useRef({tops:[],heights:[]});
+  const startYRef=useRef(0);
+  const dyRef=useRef(0);
+  const timer=useRef(null);
+  const activeRef=useRef(false);
+
+  function measure(){
+    const tops=[],heights=[];
+    refs.current.forEach(el=>{
+      if(el){const r=el.getBoundingClientRect();tops.push(r.top);heights.push(r.height);}
+      else{tops.push(0);heights.push(0);}
+    });
+    meas.current={tops,heights};
+  }
+
+  function applyDragTransform(d){
+    // Move dragged element directly via DOM вЂ” no React re-render
+    const el=refs.current[srcRef.current];
+    if(el)el.style.transform='translateY('+d+'px) scale(1.04)';
+  }
+
+  function applyShifts(newTgt){
+    const{heights}=meas.current;
+    const s=srcRef.current;
+    if(s===null)return;
+    const h=(heights[s]||80)+gap;
+    refs.current.forEach((el,i)=>{
+      if(!el||i===s)return;
+      let shift=0;
+      if(s<newTgt&&i>s&&i<=newTgt)shift=-h;
+      else if(s>newTgt&&i>=newTgt&&i<s)shift=h;
+      el.style.transform=shift?'translateY('+shift+'px)':'none';
+    });
+  }
+
+  function onTs(idx,e){
+    e.target.style.webkitUserSelect='none';
+    const y=e.touches[0].clientY;
+    timer.current=setTimeout(()=>{
+      measure();
+      activeRef.current=true;
+      srcRef.current=idx;tgtRef.current=idx;
+      startYRef.current=y;dyRef.current=0;
+      // Reset all transforms first
+      refs.current.forEach((el,i)=>{if(el)el.style.transition=i===idx?'box-shadow .15s':'transform .22s cubic-bezier(.2,.8,.4,1)';});
+      const dragEl=refs.current[idx];
+      if(dragEl){dragEl.style.transform='translateY(0) scale(1.04)';dragEl.style.boxShadow='0 28px 64px rgba(0,0,0,.32)';dragEl.style.zIndex='100';}
+      setSrc(idx);setTgt(idx);
+      if(navigator.vibrate)navigator.vibrate(40);
+    },480);
+  }
+
+  function onTm(e){
+    clearTimeout(timer.current);
+    if(!activeRef.current||srcRef.current===null)return;
+    e.preventDefault();e.stopPropagation();
+    const y=e.touches[0].clientY;
+    const d=y-startYRef.current;
+    dyRef.current=d;
+    applyDragTransform(d);
+    const{tops,heights}=meas.current;
+    const s=srcRef.current;
+    const srcCenter=tops[s]+heights[s]/2+d;
+    let newTgt=s;
+    for(let i=0;i<items.length;i++){
+      if(i===s)continue;
+      const mid=tops[i]+heights[i]/2;
+      if(i<s&&srcCenter<mid){newTgt=i;break;}
+      if(i>s&&srcCenter>mid)newTgt=i;
+    }
+    if(newTgt!==tgtRef.current){tgtRef.current=newTgt;setTgt(newTgt);applyShifts(newTgt);}
+  }
+
+  function onTe(e){
+    clearTimeout(timer.current);
+    const s=srcRef.current,t=tgtRef.current;
+    if(activeRef.current&&s!==null&&t!==null&&t!==s)onReorder(s,t);
+    activeRef.current=false;
+    // Reset all DOM transforms
+    refs.current.forEach(el=>{if(el){el.style.transform='';el.style.boxShadow='';el.style.zIndex='';}});
+    srcRef.current=null;tgtRef.current=null;
+    setSrc(null);setTgt(null);
+  }
+
+  return <div style={{position:'relative'}}>
+    {items.map((item,idx)=>{
+      const isDrag=idx===src;
+      return <div
+        key={keyFn(item,idx)}
+        ref={el=>refs.current[idx]=el}
+        onTouchStart={e=>onTs(idx,e)}
+        onTouchMove={onTm}
+        onTouchEnd={onTe}
+        onContextMenu={e=>e.preventDefault()}
+        style={{marginBottom:gap,touchAction:'pan-y',position:'relative',borderRadius:28,
+          willChange:'transform',
+        }}
+      >{renderItem(item,idx,isDrag)}</div>;
+    })}
+  </div>;
+}
+
+function SwipeableCard({children,onSwipeRight,onSwipeLeft,onSwipeUp,style={}}){
+  const stX=useRef(null),stY=useRef(null);
+  const txR=useRef(0),tyR=useRef(0);
+  const moving=useRef(false),dirL=useRef(null);
+  const[tx,setTx]=useState(0);
+  const[ty,setTy]=useState(0);
+
+  function onTS(e){
+    if(e.touches.length>1)return;
+    stX.current=e.touches[0].clientX;
+    stY.current=e.touches[0].clientY;
+    txR.current=0;tyR.current=0;moving.current=false;dirL.current=null;
+    setTx(0);setTy(0);
+  }
+  function onTM(e){
+    if(stX.current===null)return;
+    const dx=e.touches[0].clientX-stX.current;
+    const dy=e.touches[0].clientY-stY.current;
+    if(!moving.current){
+      if(Math.abs(dx)>5||Math.abs(dy)>5){
+        moving.current=true;
+        dirL.current=Math.abs(dy)>Math.abs(dx)?'v':'h';
+      } else return;
+    }
+    if(dirL.current==='v'){
+      tyR.current=dy;txR.current=0;
+      setTy(dy);setTx(0);
+    } else {
+      txR.current=dx;tyR.current=0;
+      setTx(dx);setTy(0);
+      e.stopPropagation(); // prevent scroll
+    }
+  }
+  function onTE(){
+    const cx=txR.current,cy=tyR.current;
+    stX.current=null;stY.current=null;
+    txR.current=0;tyR.current=0;
+    moving.current=false;dirL.current=null;
+    setTx(0);setTy(0);
+    if(cy<-70&&Math.abs(cx)<60&&onSwipeUp){onSwipeUp();return;}
+    if(cx>80&&onSwipeRight){onSwipeRight();return;}
+    if(cx<-80&&onSwipeLeft){onSwipeLeft();return;}
+  }
+
+  const showH=Math.abs(tx)>30;
+  const showUp=ty<-30&&Math.abs(tx)<50;
+
+  return <div
+    onTouchStart={onTS}
+    onTouchMove={onTM}
+    onTouchEnd={onTE}
+    style={{position:'relative',overflow:'hidden',borderRadius:28,...style}}>
+    {showUp&&<div style={{position:'absolute',inset:0,background:'rgba(120,120,128,.14)',display:'flex',alignItems:'flex-start',justifyContent:'center',paddingTop:14,borderRadius:28,pointerEvents:'none',opacity:Math.min((-ty-30)/60,1)}}>
+      <div style={{background:'rgba(60,60,70,.92)',borderRadius:50,padding:'7px 16px',display:'flex',alignItems:'center',gap:6}}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+        <span style={{color:'#fff',fontSize:12,fontWeight:700}}>РџСЂРѕРїСѓСЃС‚РёС‚СЊ</span>
+      </div>
+    </div>}
+    {showH&&tx>0&&<div style={{position:'absolute',inset:0,background:'rgba(48,209,88,.14)',display:'flex',alignItems:'center',paddingLeft:20,borderRadius:28,pointerEvents:'none',opacity:Math.min((tx-30)/60,1)}}>
+      <div style={{background:'#30d158',borderRadius:50,padding:'7px 14px',display:'flex',alignItems:'center',gap:5}}><IcCheck c="#fff" s={13} sw={2.5}/><span style={{color:'#fff',fontSize:12,fontWeight:700}}>РЎРґРµР»Р°РЅРѕ</span></div>
+    </div>}
+    {showH&&tx<0&&<div style={{position:'absolute',inset:0,background:'rgba(120,120,128,.12)',display:'flex',alignItems:'center',justifyContent:'flex-end',paddingRight:20,borderRadius:28,pointerEvents:'none',opacity:Math.min((-tx-30)/60,1)}}>
+      <div style={{background:'rgba(90,90,100,.9)',borderRadius:50,padding:'7px 14px',display:'flex',alignItems:'center',gap:5}}><IcX c="#fff" s={13} sw={2.5}/><span style={{color:'#fff',fontSize:12,fontWeight:700}}>РќРµ РІС‹РїРѕР»РЅРµРЅРѕ</span></div>
+    </div>}
+    <div style={{transform:'translateX('+tx+'px) translateY('+(ty<0?ty*0.5:0)+'px)',transition:(tx===0&&ty===0)?'transform .28s cubic-bezier(.25,.46,.45,.94)':'none',willChange:'transform'}}>
+      {children}
+    </div>
+  </div>;
+}
+
+function HabitCardsList({habits,setHabits,tday,d30,toggleDay,setDayState,setDayValue,streak,setEditH}){
+  const{T,dark}=useT();
+  const P=dark?PD:PL;
+  const pof=n=>P[Math.min(Math.max(n||0,0),P.length-1)];
+
+  function reorder(from,to){setHabits(hs=>{const a=[...hs];const item=a.splice(from,1)[0];a.splice(to,0,item);return a;});}
+  function moveToEnd(h){setHabits(hs=>{const r=hs.filter(x=>x.id!==h.id);return[...r,h];});}
+
+  if(habits.length===0)return <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:T.muted,fontSize:16}}>РќРµС‚ РїСЂРёРІС‹С‡РµРє</div>;
+
+  return <div className='no-select' style={{flex:1,overflowY:'auto',paddingTop:8,paddingBottom:8}}>
+    <SortableList items={habits} keyFn={h=>h.id} onReorder={reorder} renderItem={(h,idx,isDrag)=>{
+      const p=pof(h.colorIdx);const str=streak(h);const td=h.days?.find(d=>d.date===tday)?.state||null;
+      return <div style={{background:p.bg,borderRadius:28,boxShadow:isDrag?'0 20px 50px rgba(0,0,0,.25)':'0 4px 20px rgba(0,0,0,.07)'}}>
+        <div style={{padding:'18px 20px'}}>
+          <div style={{display:'flex',alignItems:'flex-start',gap:8,marginBottom:12}}>
+            <div style={{width:18,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:6,opacity:.2}}>
+              <svg width="10" height="16" viewBox="0 0 10 16" fill={p.text}>
+                <circle cx="3" cy="2" r="1.5"/><circle cx="3" cy="8" r="1.5"/><circle cx="3" cy="14" r="1.5"/>
+                <circle cx="8" cy="2" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="14" r="1.5"/>
+              </svg>
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              {str>0&&<div style={{fontSize:12,color:p.sub,fontWeight:600,marginBottom:3,display:'flex',alignItems:'center',gap:4}}><IcFlame c={p.sub} s={12}/>{str} РґРЅРµР№ РїРѕРґСЂСЏРґ</div>}
+              <div style={{fontSize:19,fontWeight:700,color:p.text,lineHeight:1.3,letterSpacing:-.3}}>{h.text}</div>
+              {h.notes&&<div style={{fontSize:13,color:p.sub,marginTop:3,lineHeight:1.5}}>{h.notes}</div>}
+            </div>
+            <button onPointerDown={e=>e.stopPropagation()} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();setEditH(h);}} onClick={e=>{e.stopPropagation();setEditH(h);}} style={{width:32,height:32,borderRadius:10,background:'rgba(0,0,0,.08)',border:'none',cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',WebkitTapHighlightColor:'transparent',touchAction:'manipulation'}}>
+              <IcPencil c={p.sub} s={14}/>
+            </button>
+            <div onPointerDown={e=>e.stopPropagation()} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();toggleDay(h.id,tday);}} onClick={e=>{e.stopPropagation();toggleDay(h.id,tday);}} style={{width:42,height:42,borderRadius:13,flexShrink:0,cursor:'pointer',border:'2px solid '+(td==='done'?'transparent':td==='failed'?'#ff453a':p.dot),background:td==='done'?p.dot:td==='failed'?'rgba(255,69,58,.85)':'transparent',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .2s',WebkitTapHighlightColor:'transparent',touchAction:'manipulation',boxShadow:td==='done'?'0 4px 14px '+p.dot+'50':'none'}}>
+              {td==='done'&&<IcCheck c="#fff" s={18} sw={2.5}/>}
+              {td==='failed'&&<IcX c="#fff" s={14} sw={2.5}/>}
+            </div>
+          </div>
+          <DayStrip habit={h} dates30={d30} onToggle={toggleDay}/>
+        </div>
+      </div>;
+    }}/>
+  </div>;
+}
+
+/* ===== TAB 2: HABITS ===== */
+function HabitsTab({habits,setHabits,dark,onToggleDark}){
+  const{T}=useT();
+  const P=dark?PD:PL;
+  const pof=n=>P[Math.min(Math.max(n||0,0),P.length-1)];
+  const d90=mkDates(90);
+  const d30=mkDates(30);
+  const tday=tod();
+  const[adding,setAdding]=useState(false);
+  const[addText,setAddText]=useState('');
+  const[mode,setMode]=useState('stack');
+  const[calH,setCalH]=useState(null);
+  const[editH,setEditH]=useState(null);
+
+  function add(){if(!addText.trim())return;setHabits(hs=>[ensDays({id:Date.now(),text:addText.trim(),notes:'',colorIdx:hs.length%6,days:[],totalReps:0},d90),...hs]);setAddText('');setAdding(false);}
+  function setDayState(hid,date,state){
+    setHabits(hs=>hs.map(h=>{
+      if(h.id!==hid)return h;
+      const cur=h.days.find(d=>d.date===date)?.state||null;
+      const newState=state==='toggle'?(cur==='done'?null:'done'):state;
+      const delta=(newState==='done'?1:0)-(cur==='done'?1:0);
+      const newDays=h.days.find(d=>d.date===date)
+        ?h.days.map(d=>d.date===date?{...d,state:newState}:d)
+        :[...h.days,{date,state:newState}];
+      return{...h,totalReps:(h.totalReps||0)+delta,days:newDays};
+    }));
+  }
+  function toggleDay(hid,date){setDayState(hid,date,'toggle');}
+  function setDayValue(hid,date,value){
+    setHabits(hs=>hs.map(h=>{
+      if(h.id!==hid)return h;
+      const autoComplete=h.widget?.autoComplete!==false;
+      const hasValue=Number(value)>0;
+      const prev=h.days.find(d=>d.date===date);
+      const prevState=prev?.state||null;
+      const nextState=autoComplete?(hasValue?'done':(prevState==='done'?null:prevState)):prevState;
+      const delta=(nextState==='done'?1:0)-(prevState==='done'?1:0);
+      const newDays=h.days.find(d=>d.date===date)
+        ?h.days.map(d=>d.date===date?{...d,state:nextState,value}:d)
+        :[...h.days,{date,state:nextState,value}];
+      return{...h,totalReps:(h.totalReps||0)+delta,days:newDays};
+    }));
+  }
+  function del(id){setHabits(hs=>hs.filter(h=>h.id!==id));setEditH(null);}
+  function move(idx,dir){setHabits(hs=>{const a=[...hs];const t=idx+dir;if(t<0||t>=a.length)return a;[a[idx],a[t]]=[a[t],a[idx]];return a;});}
+  function saveH(id,text,notes,ci,widget){setHabits(hs=>hs.map(h=>h.id===id?{...h,text,notes,colorIdx:ci,widget:widget||null}:h));setEditH(null);}
+  function streak(h){let s=0;for(let i=d30.length-2;i>=0;i--){const dd=h.days?.find(x=>x.date===d30[i]);if(dd?.state==='done')s++;else break;}return s;}
+
+  const undT=habits.filter(h=>{
+    const st=h.days?.find(d=>d.date===tday)?.state||null;
+    return st!=='done'&&st!=='failed';
+  });
+  const donT=habits.filter(h=> h.days?.find(d=>d.date===tday)?.state==='done');
+
+  function swR(h){setDayState(h.id,tday,'done');} // stack right = toggle done
+  function swL(h){
+    // Mark as failed AND remove from undone stack in one atomic update
+    setHabits(hs=>hs.map(hh=>{
+      if(hh.id!==h.id)return hh;
+      const cur=hh.days.find(d=>d.date===tday)?.state||null;
+      const delta=(0)-(cur==='done'?1:0);
+      const newDays=hh.days.find(d=>d.date===tday)
+        ?hh.days.map(d=>d.date===tday?{...d,state:'failed'}:d)
+        :[...hh.days,{date:tday,state:'failed'}];
+      return{...hh,totalReps:(hh.totalReps||0)+delta,days:newDays};
+    }));
+    // Do NOT move to end вЂ” card will naturally disappear from undT since state='failed'
+  }
+  function swU(h){setHabits(hs=>{const rest=hs.filter(x=>x.id!==h.id);return[...rest,h];});} // stack up = skip
+
+  return <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
+    {calH&&<CalModal habit={calH} onClose={()=>setCalH(null)} onToggle={toggleDay}/>}
+    {editH&&<EditHabitSheet habit={editH} showCal={!!editH._showCal} onSave={(t,n,c,w)=>saveH(editH.id,t,n,c,w)} onDelete={()=>del(editH.id)} onCalendar={()=>{setCalH(editH);setEditH(null);}} onClose={()=>setEditH(null)}/>}
+    {/* Header */}
+    <div style={{flexShrink:0,padding:'18px 0 12px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+      <div>
+        <div style={{fontSize:26,fontWeight:700,letterSpacing:-.5,color:T.text}}>РџСЂРёРІС‹С‡РєРё</div>
+        <div style={{fontSize:13,color:T.muted,fontWeight:500,marginTop:2}}>{donT.length}/{habits.length} СЃРµРіРѕРґРЅСЏ</div>
+      </div>
+      <div style={{display:'flex',gap:6,alignItems:'center'}}>
+        <Pill onClick={()=>setMode(m=>m==='stack'?'cards':'stack')} active={mode==='cards'}>
+          {mode==='stack'?<IcList c={T.ctrlTxt} s={14}/>:<IcStack c={T.pillTxt} s={14}/>}
+          {mode==='stack'?'РЎРїРёСЃРѕРє':'РЎС‚РѕРїРєР°'}
+        </Pill>
+        <button onClick={onToggleDark} style={{width:34,height:34,borderRadius:10,border:'0.5px solid '+T.sep,background:T.ctrl,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:BL,WebkitBackdropFilter:BL,flexShrink:0}}>
+          {dark?<IcSun c={T.ctrlTxt} s={16} sw={1.8}/>:<IcMoon c={T.ctrlTxt} s={16} sw={1.8}/>}
+        </button>
+        <PlusBtn onClick={()=>setAdding(v=>!v)} active={adding}/>
+      </div>
+    </div>
+    {adding&&<div style={{flexShrink:0,background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:20,padding:18,marginBottom:14,border:'0.5px solid '+T.sep,animation:'scaleIn .2s ease'}}>
+      <input autoFocus value={addText} onChange={e=>setAddText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} placeholder="РќР°Р·РІР°РЅРёРµ РїСЂРёРІС‹С‡РєРё..." style={{width:'100%',border:'none',outline:'none',fontSize:17,background:'transparent',marginBottom:14,color:T.text}}/>
+      <button onClick={add} style={{width:'100%',padding:12,borderRadius:13,border:'none',background:T.pill,color:T.pillTxt,fontSize:15,fontWeight:600,cursor:'pointer'}}>Р”РѕР±Р°РІРёС‚СЊ</button>
+    </div>}
+    {/* Stack */}
+    {mode==='stack'&&<div style={{flex:1,position:'relative',overflow:'hidden'}}>
+      {habits.length===0
+        ?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:T.muted}}><IcLeaf c={T.muted} s={48}/><div style={{fontSize:16,fontWeight:500,marginTop:12}}>РќРµС‚ РїСЂРёРІС‹С‡РµРє</div></div>
+        :undT.length===0
+        ?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:10}}><IcCheck c={T.muted} s={48}/><div style={{fontSize:18,fontWeight:700,color:T.text}}>Р’СЃС‘ РѕС‚РјРµС‡РµРЅРѕ!</div><div style={{fontSize:13,color:T.muted}}>{donT.length} вњ“  {habits.filter(h=>h.days?.find(d=>d.date===tday)?.state==='failed').length} вњ—</div></div>
+        :<>
+          <div style={{position:'absolute',top:0,left:0,right:0,zIndex:10,display:'flex',justifyContent:'space-between',alignItems:'center',padding:'0 8px',pointerEvents:'none'}}>
+            <span style={{fontSize:12,fontWeight:600,color:T.muted}}>в†ђ РџРѕР·Р¶Рµ</span>
+            <span style={{fontSize:12,fontWeight:600,color:T.muted}}>Р“РѕС‚РѕРІРѕ в†’</span>
+          </div>
+          <div style={{position:'absolute',top:22,left:0,right:0,bottom:0}}>
+            <TinderStack items={undT} onRight={swR} onLeft={swL} onUp={swU} onTap={h=>setEditH({...h,_showCal:true})}  renderCard={(h)=>{
+              const p=pof(h.colorIdx);const str=streak(h);
+              return <div style={{padding:'24px 24px',height:'100%',display:'flex',flexDirection:'column',justifyContent:'space-between'}}>
+                <div style={{flex:1,minHeight:0,display:'flex',flexDirection:'column'}}>
+                  {str>0&&<div style={{fontSize:12,color:p.sub,fontWeight:600,marginBottom:6,display:'flex',alignItems:'center',gap:5}}><IcFlame c={p.sub} s={12}/>{str} РґРЅРµР№ РїРѕРґСЂСЏРґ</div>}
+                  <div style={{fontSize:h.widget?22:28,fontWeight:700,color:p.text,lineHeight:1.3,letterSpacing:-.4,marginBottom:h.notes?8:h.widget?14:0}}>{h.text}</div>
+                  {h.notes&&<div style={{fontSize:13,color:p.sub,lineHeight:1.5,marginBottom:h.widget?12:0}}>{h.notes}</div>}
+                  {h.widget?.type==='counter'&&<div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                    <CounterWidget habit={h} date={tday} p={p} onValue={setDayValue}/>
+                  </div>}
+                  {h.widget?.type==='pomodoro'&&<div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                    <PomodoroWidget habit={h} date={tday} p={p} onDone={()=>setDayState(h.id,tday,'done')}/>
+                  </div>}
+                  {h.widget?.type==='mood'&&<div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                    <MoodWidget habit={h} date={tday} p={p} onValue={setDayValue}/>
+                  </div>}
+                </div>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0,marginTop:12}}>
+                  <div style={{display:'flex',gap:5}}>{undT.slice(0,7).map((_,i)=><div key={i} style={{width:i===0?20:7,height:6,borderRadius:3,background:i===0?p.dot:(p.dot+'40')}}/>)}</div>
+                  <div style={{fontSize:11,color:p.sub,opacity:.45,display:'flex',alignItems:'center',gap:3}}><IcPencil c={p.sub} s={11}/>РёР·РјРµРЅРёС‚СЊ</div>
+                </div>
+              </div>;
+            }}/>
+          </div>
+          {donT.length>0&&<div style={{position:'absolute',bottom:8,right:8,background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:12,padding:'5px 11px',border:'0.5px solid '+T.sep}}><span style={{fontSize:12,fontWeight:600,color:T.sub}}>вњ“ {donT.length}</span></div>}
+        </>}
+    </div>}
+    {/* Cards mode вЂ” long press to drag reorder */}
+    {mode==='cards'&&<HabitCardsList habits={habits} setHabits={setHabits} tday={tday} d30={d30} toggleDay={toggleDay} setDayState={setDayState} setDayValue={setDayValue} streak={streak} setEditH={setEditH}/>}
+  </div>;
+}
+
+/* ===== TAB 3: SR ===== */
+function SRTab({dark,onToggleDark}){
+  const{T}=useT();
+  const P=dark?PD:PL;
+  const pof=n=>P[Math.min(Math.max(n||0,0),P.length-1)];
+  const[cards,setCards]=useState(()=>ld('sr9',[]));
+  const[front,setFront]=useState('');
+  const[back,setBack]=useState('');
+  const[flipped,setFlipped]=useState(false);
+  const[fly,setFly]=useState(null);
+  const[dx,setDx]=useState(0);
+  const[dy,setDy]=useState(0);
+  const stRef=useRef(null);
+  const dxRef=useRef(0);
+  const dyRef=useRef(0);
+  const[adding,setAdding]=useState(false);
+  useEffect(()=>{sv('sr9',cards);},[cards]);
+  const now=Date.now();
+  const due=cards.filter(c=>c.nextReview<=now).sort((a,b)=>a.nextReview-b.nextReview);
+  const cur=due[0],sec=due[1],thr=due[2];
+  const cp=cur?pof(cur.reps):P[0];
+
+  function addCard(){if(!front.trim()||!back.trim())return;setCards(cs=>[...cs,{id:Date.now(),front:front.trim(),back:back.trim(),level:0,nextReview:Date.now(),reps:0}]);setFront('');setBack('');setAdding(false);}
+  function answer(knew){
+    if(!cur||fly)return;
+    setFly(knew?'right':'left');setDx(0);setDy(0);dxRef.current=0;dyRef.current=0;
+    setTimeout(()=>{
+      setCards(cs=>cs.map(c=>{if(c.id!==cur.id)return c;const nl=knew?Math.min(c.level+1,SR.length-1):0;return{...c,level:nl,nextReview:Date.now()+SR[nl].ms,reps:(c.reps||0)+(knew?1:0)};}));
+      setFly(null);setFlipped(false);setDx(0);setDy(0);
+    },360);
+  }
+  function dn(e){if(fly)return;const x=e.clientX??e.touches?.[0]?.clientX;const y=e.clientY??e.touches?.[0]?.clientY;stRef.current={x,y};dxRef.current=0;dyRef.current=0;setDx(0);setDy(0);}
+  function mv(e){if(!stRef.current||fly)return;const nx=(e.clientX??e.touches?.[0]?.clientX)-stRef.current.x;const ny=(e.clientY??e.touches?.[0]?.clientY)-stRef.current.y;dxRef.current=nx;dyRef.current=ny;setDx(nx);setDy(ny);}
+  function up(){if(!stRef.current)return;const cx=dxRef.current,cy=dyRef.current;stRef.current=null;if(cx>90)answer(true);else if(cx<-90)answer(false);else if(Math.abs(cx)<12&&Math.abs(cy)<12)setFlipped(f=>!f);if(Math.abs(cx)<=90){dxRef.current=0;dyRef.current=0;setDx(0);setDy(0);}}
+  const drag=!!stRef.current&&!fly;
+
+  return <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
+    <div style={{flexShrink:0,padding:'18px 0 12px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+      <div>
+        <div style={{fontSize:26,fontWeight:700,letterSpacing:-.5,color:T.text}}>РџРѕРІС‚РѕСЂРµРЅРёРµ</div>
+        <div style={{fontSize:13,color:T.muted,fontWeight:500,marginTop:2}}>{due.length} Рє РїРѕРІС‚РѕСЂРµРЅРёСЋ В· {cards.length} РІСЃРµРіРѕ</div>
+      </div>
+      <div style={{display:'flex',gap:6,alignItems:'center'}}>
+        <button onClick={onToggleDark} style={{width:34,height:34,borderRadius:10,border:'0.5px solid '+T.sep,background:T.ctrl,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:BL,WebkitBackdropFilter:BL,flexShrink:0}}>
+          {dark?<IcSun c={T.ctrlTxt} s={16} sw={1.8}/>:<IcMoon c={T.ctrlTxt} s={16} sw={1.8}/>}
+        </button>
+        <PlusBtn onClick={()=>setAdding(v=>!v)} active={adding}/>
+      </div>
+    </div>
+    {adding&&<div style={{flexShrink:0,background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:20,padding:18,marginBottom:14,border:'0.5px solid '+T.sep,animation:'scaleIn .2s ease'}}>
+      <input autoFocus value={front} onChange={e=>setFront(e.target.value)} placeholder="Р’РѕРїСЂРѕСЃ..." style={{width:'100%',border:'none',borderBottom:'0.5px solid '+T.sep,outline:'none',fontSize:16,background:'transparent',paddingBottom:11,marginBottom:12,color:T.text}}/>
+      <input value={back} onChange={e=>setBack(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addCard()} placeholder="РћС‚РІРµС‚..." style={{width:'100%',border:'none',outline:'none',fontSize:16,background:'transparent',marginBottom:14,color:T.text}}/>
+      <button onClick={addCard} style={{width:'100%',padding:12,borderRadius:13,border:'none',background:T.pill,color:T.pillTxt,fontSize:15,fontWeight:600,cursor:'pointer'}}>Р”РѕР±Р°РІРёС‚СЊ</button>
+    </div>}
+    {cur?<div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <div style={{flexShrink:0,display:'flex',justifyContent:'space-between',padding:'0 8px',marginBottom:12}}>
+        <span style={{fontSize:12,fontWeight:600,color:dx<-40?'#ff3b30':T.muted,transition:'color .1s'}}>в†ђ РќРµ Р·РЅР°СЋ</span>
+        <span style={{fontSize:12,fontWeight:600,color:dx>40?'#30d158':T.muted,transition:'color .1s'}}>Р—РЅР°СЋ в†’</span>
+      </div>
+      <div style={{flex:1,position:'relative'}}>
+        {thr&&<div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',pointerEvents:'none'}}><div style={{width:'calc(100% - 44px)',height:'100%',borderRadius:28,background:pof(thr.reps).bg,transform:'scale(.88) translateY('+(drag?-12:0)+'px)',transition:drag?'none':'transform .3s ease'}}/></div>}
+        {sec&&<div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',pointerEvents:'none'}}><div style={{width:'calc(100% - 22px)',height:'100%',borderRadius:28,background:pof(sec.reps).bg,transform:'scale(.94) translateY('+(drag?-20:0)+'px)',transition:drag?'none':'transform .3s ease',boxShadow:'0 4px 24px rgba(0,0,0,.12)'}}/></div>}
+        <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <div onMouseDown={dn} onMouseMove={mv} onMouseUp={up} onMouseLeave={up}
+            onTouchStart={e=>dn(e.touches[0])} onTouchMove={e=>{e.preventDefault();mv(e.touches[0]);}} onTouchEnd={up}
+            style={{width:'100%',height:'100%',borderRadius:28,background:cp.bg,
+              boxShadow:dx>40?'0 18px 52px rgba(48,209,88,.24)':dx<-40?'0 18px 52px rgba(255,59,48,.2)':'0 16px 52px rgba(0,0,0,.15)',
+              cursor:fly?'default':'grab',userSelect:'none',position:'relative',overflow:'hidden',
+              transform:fly==='right'?'translateX(160vw) rotate(26deg)':fly==='left'?'translateX(-160vw) rotate(-26deg)':('translateX('+dx+'px) translateY('+(dy*.08)+'px) rotate('+(dx*.05)+'deg)'),
+              transition:fly||!stRef.current?'transform .36s cubic-bezier(.25,.46,.45,.94),box-shadow .15s':'box-shadow .15s',
+            }}>
+            {dx>30&&<div style={{position:'absolute',inset:0,borderRadius:28,background:'rgba(48,209,88,.1)',display:'flex',alignItems:'flex-start',justifyContent:'flex-end',padding:20,pointerEvents:'none',opacity:Math.min((dx-30)/60,1)}}><div style={{background:'#30d158',borderRadius:50,padding:'7px 14px',display:'flex',alignItems:'center',gap:6}}><IcCheck c="#fff" s={14} sw={2.5}/><span style={{color:'#fff',fontSize:13,fontWeight:700}}>Р—РЅР°СЋ</span></div></div>}
+            {dx<-30&&<div style={{position:'absolute',inset:0,borderRadius:28,background:'rgba(255,59,48,.08)',display:'flex',alignItems:'flex-start',justifyContent:'flex-start',padding:20,pointerEvents:'none',opacity:Math.min((-dx-30)/60,1)}}><div style={{background:'#ff3b30',borderRadius:50,padding:'7px 14px',display:'flex',alignItems:'center',gap:6}}><IcX c="#fff" s={14} sw={2.5}/><span style={{color:'#fff',fontSize:13,fontWeight:700}}>РќРµ Р·РЅР°СЋ</span></div></div>}
+            <div style={{padding:'28px 24px',height:'100%',display:'flex',flexDirection:'column',justifyContent:'space-between',alignItems:'center'}}>
+              <div style={{width:'100%'}}>
+                <div style={{fontSize:11,fontWeight:700,letterSpacing:2.5,color:cp.sub,marginBottom:16,textTransform:'uppercase',textAlign:'center'}}>{flipped?'РћС‚РІРµС‚':'Р’РѕРїСЂРѕСЃ'}</div>
+                <div style={{fontSize:26,fontWeight:700,textAlign:'center',color:cp.text,lineHeight:1.4,letterSpacing:-.3}}>{flipped?cur.back:cur.front}</div>
+              </div>
+              <div style={{width:'100%'}}>
+                <div style={{display:'flex',gap:5,justifyContent:'center',marginBottom:8}}>{SR.map((_,i)=><div key={i} style={{width:cur.level>=i?20:8,height:5,borderRadius:3,background:cur.level>=i?cp.dot:'rgba(128,128,128,.18)',transition:'all .3s'}}/>)}</div>
+                <div style={{fontSize:12,color:cp.sub,textAlign:'center',fontWeight:500}}>{flipped?'СЃРІР°Р№Рї: РІРїСЂР°РІРѕ вЂ” Р·РЅР°СЋ, РІР»РµРІРѕ вЂ” РЅРµС‚':'РЅР°Р¶РјРё С‡С‚РѕР±С‹ РїРµСЂРµРІРµСЂРЅСѓС‚СЊ'}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style={{flexShrink:0,display:'flex',gap:12,justifyContent:'center',padding:'14px 0 8px'}}>
+        {[{cb:()=>answer(false),c:'#ff3b30',bg:dark?'rgba(255,59,48,.12)':'rgba(255,59,48,.07)',Icon:IcX},{cb:()=>setFlipped(f=>!f),c:T.sub,bg:T.ctrl,Icon:IcRepeat},{cb:()=>answer(true),c:'#30d158',bg:dark?'rgba(48,209,88,.12)':'rgba(48,209,88,.07)',Icon:IcCheck}].map((b,i)=>
+          <button key={i} onClick={b.cb} style={{width:58,height:58,borderRadius:'50%',border:'1px solid '+(b.c+'28'),background:b.bg,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',backdropFilter:BL,WebkitBackdropFilter:BL}}>
+            <b.Icon c={b.c} s={22} sw={2}/>
+          </button>
+        )}
+      </div>
+    </div>
+    :cards.length>0?<div style={{flex:1,overflowY:'auto'}}>
+      <div style={{display:'flex',flexDirection:'column',alignItems:'center',paddingTop:28,paddingBottom:16,gap:8}}>
+        <IcRepeat c={T.muted} s={44}/>
+        <div style={{fontSize:18,fontWeight:700,letterSpacing:-.3,color:T.text}}>Р’СЃС‘ РїРѕРІС‚РѕСЂРµРЅРѕ!</div>
+        <div style={{color:T.muted,fontSize:14,fontWeight:500}}>РЎР»РµРґСѓСЋС‰РµРµ: {fmtMs(Math.min(...cards.map(c=>c.nextReview))-now)}</div>
+      </div>
+      <div style={{background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:18,overflow:'hidden',border:'0.5px solid '+T.sep}}>
+        {cards.map((c,i)=>{const p2=pof(c.reps);return <div key={c.id} style={{display:'flex',alignItems:'center',gap:10,padding:'11px 14px',borderBottom:i<cards.length-1?'0.5px solid '+T.sep:'none'}}>
+          <div style={{width:8,height:8,borderRadius:'50%',background:p2.dot,flexShrink:0}}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:13,fontWeight:600,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.front}</div>
+            <div style={{fontSize:12,color:T.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.back}</div>
+          </div>
+          <div style={{fontSize:11,fontWeight:600,color:T.muted,textAlign:'right',flexShrink:0}}>
+            <div>{fmtMs(c.nextReview-now)}</div>
+            <div>РЈСЂ.{c.level+1}</div>
+          </div>
+          <button onClick={()=>setCards(cs=>cs.filter(x=>x.id!==c.id))} style={{background:'none',border:'none',cursor:'pointer',display:'flex',opacity:.4}}><IcX c={T.muted} s={15}/></button>
+        </div>;})}
+      </div>
+    </div>
+    :<div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:T.muted,gap:12}}>
+      <IcBrain c={T.muted} s={44}/>
+      <div style={{fontSize:16,fontWeight:500}}>РќР°Р¶РјРё + С‡С‚РѕР±С‹ РґРѕР±Р°РІРёС‚СЊ</div>
+    </div>}
+  </div>;
+}
+
+/* ===== ONBOARDING ===== */
+/* ===== ONBOARDING ===== */
+function OnbSwipe({dir,label,color}){
+  const arrows={'right':'в†’','left':'в†ђ','up':'в†‘'};
+  const colors={'right':'#30d158','left':'#ff453a','up':'#8e8e93'};
+  return <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 0'}}>
+    <div style={{width:36,height:36,borderRadius:11,background:(colors[dir]||'#888')+'22',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+      <span style={{fontSize:18,color:colors[dir]||'#888'}}>{arrows[dir]}</span>
+    </div>
+    <span style={{fontSize:14,color:'rgba(255,255,255,.75)',lineHeight:1.4}}>{label}</span>
+  </div>;
+}
+
+function OnbCard({bg,children}){
+  return <div style={{background:bg||'rgba(255,255,255,.07)',borderRadius:20,padding:'16px 18px',marginBottom:10}}>{children}</div>;
+}
+
+function Onboarding({onDone}){
+  const{T}=useT();
+  const[step,setStep]=useState(0);
+
+  const steps=[
+    {
+      title:'РљР°СЂС‚РѕС‡РєРё',
+      sub:'Р”РѕР±СЂРѕ РїРѕР¶Р°Р»РѕРІР°С‚СЊ! Р‘С‹СЃС‚СЂС‹Р№ РіР°Р№Рґ',
+      content:<div>
+        <OnbCard bg="rgba(155,143,204,.12)">
+          <div style={{fontSize:15,fontWeight:700,color:'#c4b8f8',marginBottom:10}}>рџ“‹ Р”РµР»Р°</div>
+          <OnbSwipe dir="right" label="Р“РѕС‚РѕРІРѕ вЂ” Р·Р°РґР°С‡Р° РІС‹РїРѕР»РЅРµРЅР°"/>
+          <OnbSwipe dir="left" label="РџРѕР·Р¶Рµ вЂ” СѓР№РґС‘С‚ РІ РєРѕРЅРµС† СЃС‚РѕРїРєРё"/>
+          <OnbSwipe dir="up" label="Р’ РєРѕР»РѕРґСѓ вЂ” РІС‹Р±СЂР°С‚СЊ РєСѓРґР° РїРѕР»РѕР¶РёС‚СЊ"/>
+          <div style={{fontSize:13,color:'rgba(255,255,255,.45)',marginTop:8,lineHeight:1.5}}>РўР°Рї РїРѕ РєР°СЂС‚РѕС‡РєРµ в†’ СЂРµРґР°РєС‚РёСЂРѕРІР°С‚СЊ{'\n'}Р—Р°Р¶РјРё РІ СЃРїРёСЃРєРµ в†’ РїРµСЂРµС‚Р°С‰РёС‚СЊ{'\n'}РЎРІР°Р№Рї РІРІРµСЂС… РїРѕ С‡РёРїСѓ РєРѕР»РѕРґС‹ в†’ С„РёР»СЊС‚СЂ</div>
+        </OnbCard>
+      </div>
+    },
+    {
+      title:'РљРѕР»РѕРґС‹',
+      sub:'РџР°РїРєРё РґР»СЏ РіСЂСѓРїРїРёСЂРѕРІРєРё Р·Р°РґР°С‡',
+      content:<div>
+        <OnbCard bg="rgba(100,196,160,.1)">
+          <div style={{fontSize:15,fontWeight:700,color:'#68c4a0',marginBottom:10}}>рџ“Ѓ РљР°Рє СЂР°Р±РѕС‚Р°СЋС‚ РєРѕР»РѕРґС‹</div>
+          <div style={{fontSize:14,color:'rgba(255,255,255,.7)',lineHeight:1.7}}>
+            {'в†’ Р РµР¶РёРј РЎРїРёСЃРѕРє: РЅР°Р¶РјРё В«+ РљРѕР»РѕРґР°В»\nв†’ Р’ СЃС‚РѕРїРєРµ: СЃРІР°Р№Рї РІРІРµСЂС… РЅР° РєР°СЂС‚Рµ в†’ РІС‹Р±РµСЂРё РєРѕР»РѕРґСѓ\nв†’ РќР°Р¶РјРё РЅР° С‡РёРї РєРѕР»РѕРґС‹ в†’ СЃРјРѕС‚СЂРёС€СЊ С‚РѕР»СЊРєРѕ РµС‘\nв†’ Р—Р°Р¶РјРё СЃС‚СЂРѕРєСѓ РєРѕР»РѕРґС‹ РІ СЃРїРёСЃРєРµ в†’ РїРµСЂРµС‚Р°С‰Рё\nв†’ РљР°СЂР°РЅРґР°С€ в†’ РїРµСЂРµРёРјРµРЅРѕРІР°С‚СЊ / СЃРјРµРЅРёС‚СЊ С†РІРµС‚\nв†’ Р”РѕР»РіРѕРµ РЅР°Р¶Р°С‚РёРµ РЅР° С‡РёРї в†’ СѓРґР°Р»РёС‚СЊ'}
+          </div>
+        </OnbCard>
+      </div>
+    },
+    {
+      title:'РџСЂРёРІС‹С‡РєРё',
+      sub:'РЎС‚РѕРїРєР° Рё СЃРїРёСЃРѕРє',
+      content:<div>
+        <OnbCard bg="rgba(104,196,160,.1)">
+          <div style={{fontSize:15,fontWeight:700,color:'#68c4a0',marginBottom:10}}>рџЊї РЎС‚РѕРїРєР° РїСЂРёРІС‹С‡РµРє</div>
+          <OnbSwipe dir="right" label="Р’С‹РїРѕР»РЅРµРЅРѕ вЂ” вњ“ Р·РµР»С‘РЅР°СЏ РіР°Р»РѕС‡РєР°"/>
+          <OnbSwipe dir="left" label="РќРµ СЃРґРµР»Р°РЅРѕ вЂ” вњ— РєСЂР°СЃРЅС‹Р№ РєСЂРµСЃС‚РёРє, РєР°СЂС‚Р° СѓС…РѕРґРёС‚"/>
+          <OnbSwipe dir="up" label="РџСЂРѕРїСѓСЃС‚РёС‚СЊ вЂ” РєР°СЂС‚Р° СѓС…РѕРґРёС‚ РІРЅРёР· СЃС‚РѕРїРєРё"/>
+          <div style={{fontSize:13,color:'rgba(255,255,255,.45)',marginTop:8}}>РўР°Рї в†’ СЂРµРґР°РєС‚РёСЂРѕРІР°С‚СЊ В· РСЃС‚РѕСЂРёСЏ в†’ РєР°Р»РµРЅРґР°СЂСЊ</div>
+        </OnbCard>
+        <OnbCard bg="rgba(100,100,200,.1)">
+          <div style={{fontSize:15,fontWeight:700,color:'rgba(200,200,255,.8)',marginBottom:8}}>рџ“‹ РЎРїРёСЃРѕРє РїСЂРёРІС‹С‡РµРє</div>
+          <div style={{fontSize:13,color:'rgba(255,255,255,.6)',lineHeight:1.6}}>РќР°Р¶РјРё В«РЎРїРёСЃРѕРєВ» РІ С€Р°РїРєРµ{'\n'}Р“Р°Р»РѕС‡РєР° СЃРїСЂР°РІР° вЂ” РѕС‚РјРµС‚РёС‚СЊ РІС‹РїРѕР»РЅРµРЅРЅРѕР№{'\n'}Р—Р°Р¶РјРё РєР°СЂС‚РѕС‡РєСѓ в†’ РїРµСЂРµС‚Р°С‰Рё РІС‹С€Рµ/РЅРёР¶Рµ</div>
+        </OnbCard>
+      </div>
+    },
+    {
+      title:'РџРѕРІС‚РѕСЂРµРЅРёРµ',
+      sub:'РРЅС‚РµСЂРІР°Р»СЊРЅРѕРµ РїРѕРІС‚РѕСЂРµРЅРёРµ РєР°СЂС‚РѕС‡РµРє',
+      content:<div>
+        <OnbCard bg="rgba(114,170,216,.1)">
+          <div style={{fontSize:15,fontWeight:700,color:'#72aad8',marginBottom:10}}>рџ§  РљР°Рє СѓС‡РёС‚СЊ</div>
+          <OnbSwipe dir="right" label="Р—РЅР°СЋ вЂ” РєР°СЂС‚Р° РїРѕРґРЅРёРјР°РµС‚СЃСЏ РЅР° СѓСЂРѕРІРµРЅСЊ"/>
+          <OnbSwipe dir="left" label="РќРµ Р·РЅР°СЋ вЂ” РІРµСЂРЅС‘С‚СЃСЏ С‡РµСЂРµР· 1 РјРёРЅСѓС‚Сѓ"/>
+          <div style={{fontSize:13,color:'rgba(255,255,255,.45)',marginTop:8}}>РўР°Рї РїРѕ РєР°СЂС‚РѕС‡РєРµ в†’ РїРµСЂРµРІРµСЂРЅСѓС‚СЊ{'\n'}РЎРёСЃС‚РµРјР° СЃР°РјР° СЃС‡РёС‚Р°РµС‚ РєРѕРіРґР° РїРѕРІС‚РѕСЂСЏС‚СЊ: 1РјРёРЅ в†’ 10РјРёРЅ в†’ 1РґРµРЅСЊ в†’ 1РЅРµРґ в†’ 1РјРµСЃ в†’ 6РјРµСЃ</div>
+        </OnbCard>
+      </div>
+    },
+    {
+      title:'Р“РѕС‚РѕРІ!',
+      sub:'РЈРґР°С‡Рё рџљЂ',
+      content:<div>
+        <OnbCard bg="rgba(255,255,255,.07)">
+          <div style={{fontSize:14,color:'rgba(255,255,255,.65)',lineHeight:1.8}}>
+            {'вњ“ Р”Р°РЅРЅС‹Рµ С…СЂР°РЅСЏС‚СЃСЏ РЅР° СѓСЃС‚СЂРѕР№СЃС‚РІРµ\nвњ“ Р Р°Р±РѕС‚Р°РµС‚ РѕС„Р»Р°Р№РЅ\nвњ“ РЎР±СЂР°СЃС‹РІР°РµС‚СЃСЏ РІ РїРѕР»РЅРѕС‡СЊ РєР°Р¶РґС‹Р№ РґРµРЅСЊ\n\nРџРѕРІС‚РѕСЂСЏСЋС‰РёРµСЃСЏ РґРµР»Р° РїРѕСЏРІСЏС‚СЃСЏ СЃРЅРѕРІР° С‡РµСЂРµР· РЅСѓР¶РЅС‹Р№ РїРµСЂРёРѕРґ вЂ” РµР¶РµРґРЅРµРІРЅРѕ, РµР¶РµРЅРµРґРµР»СЊРЅРѕ Рё С‚.Рґ.\n\nР’ РЅР°СЃС‚СЂРѕР№РєР°С… С‚РµР»РµС„РѕРЅР° РјРѕР¶РЅРѕ РґРѕР±Р°РІРёС‚СЊ РЅР° РіР»Р°РІРЅС‹Р№ СЌРєСЂР°РЅ РєР°Рє РїСЂРёР»РѕР¶РµРЅРёРµ.'}
+          </div>
+        </OnbCard>
+      </div>
+    },
+  ];
+
+  const s=steps[step];
+  const isLast=step===steps.length-1;
+
+  return <div style={{position:'fixed',inset:0,zIndex:9999,background:'rgba(0,0,0,.88)',backdropFilter:'blur(20px)',WebkitBackdropFilter:'blur(20px)',display:'flex',flexDirection:'column',padding:0,overflow:'hidden'}}>
+    {/* Header */}
+    <div style={{padding:'24px 24px 0',flexShrink:0}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+        <div>
+          <div style={{fontSize:24,fontWeight:700,color:'#fff',letterSpacing:-.4}}>{s.title}</div>
+          <div style={{fontSize:13,color:'rgba(255,255,255,.45)',marginTop:2}}>{s.sub}</div>
+        </div>
+        <button onClick={onDone} style={{padding:'6px 14px',borderRadius:20,border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.08)',color:'rgba(255,255,255,.5)',fontSize:13,cursor:'pointer'}}>РџСЂРѕРїСѓСЃС‚РёС‚СЊ</button>
+      </div>
+      {/* Progress */}
+      <div style={{display:'flex',gap:5,marginBottom:24}}>
+        {steps.map((_,i)=><div key={i} style={{flex:1,height:3,borderRadius:2,background:i<=step?'#fff':'rgba(255,255,255,.15)',transition:'background .3s'}}/>)}
+      </div>
+    </div>
+    {/* Content */}
+    <div style={{flex:1,overflow:'auto',padding:'0 24px'}}>
+      {s.content}
+    </div>
+    {/* Buttons */}
+    <div style={{padding:'16px 24px 40px',flexShrink:0,display:'flex',gap:10}}>
+      {step>0&&<button onClick={()=>setStep(p=>p-1)} style={{flex:1,padding:14,borderRadius:16,border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.08)',color:'rgba(255,255,255,.7)',fontSize:16,fontWeight:600,cursor:'pointer'}}>в†ђ РќР°Р·Р°Рґ</button>}
+      <button onClick={()=>{if(isLast)onDone();else setStep(p=>p+1);}} style={{flex:2,padding:14,borderRadius:16,border:'none',background:isLast?'#30d158':'#fff',color:isLast?'#fff':'#000',fontSize:16,fontWeight:700,cursor:'pointer',transition:'all .2s'}}>
+        {isLast?'РќР°С‡Р°С‚СЊ вњ“':'Р”Р°Р»СЊС€Рµ в†’'}
+      </button>
+    </div>
+  </div>;
+}
+
+
+/* ===== ROOT ===== */
+const TABS=[
+  {id:0,l:'Р”РµР»Р°',Icon:({c,s})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 9l2.5 2.5L15 8"/><line x1="8" y1="14.5" x2="16" y2="14.5" opacity=".4"/></svg>},
+  {id:1,l:'РџСЂРёРІС‹С‡РєРё',Icon:({c,s})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2C9 2 6 5 6 9c0 5 6 11 6 11s6-6 6-11c0-4-3-7-6-7z"/><circle cx="12" cy="9" r="2" fill={c} stroke="none" opacity=".7"/></svg>},
+
+function App(){
+  const[tab,setTab]=useState(0);
+  const[onboarding,setOnboarding]=useState(()=>!localStorage.getItem('onb2'));
+  const[dark,setDark]=useState(()=>{const s=localStorage.getItem('dm');if(s!=null)return s==='1';return window.matchMedia('(prefers-color-scheme: dark)').matches;});
+  const[tasks,setTasks]=useState(()=>ld('tk9',[]));
+  const[lists,setLists]=useState(()=>ld('tl9',[]));
+  const[habits,setHabits]=useState(()=>{const raw=ld('hb9',[]);const d90=mkDates(90);return raw.map(h=>ensDays(h,d90));});
+
+  useEffect(()=>{sv('tk9',tasks);},[tasks]);
+  useEffect(()=>{sv('tl9',lists);},[lists]);
+  useEffect(()=>{sv('hb9',habits);},[habits]);
+  useEffect(()=>{localStorage.setItem('dm',dark?'1':'0');document.body.style.background=dark?'#000':'#f2f2f7';},[dark]);
+
+  // в”Ђв”Ђ Midnight reset в”Ђв”Ђ
+  // Logic:
+  //   вЂў Recurring tasks (daily/weekly/etc) в†’ reset done:false so they reappear
+  //   вЂў Done non-recurring tasks в†’ removed (РѕРЅРё СѓС€Р»Рё, РґРµРЅСЊ Р·Р°РєРѕРЅС‡РёР»СЃСЏ)
+  //   вЂў Undone tasks of any kind в†’ carry over as-is
+  //   вЂў Habits в†’ ensureDays runs again with fresh 90-day window (today shifts forward)
+  useEffect(()=>{
+    function doReset(){
+      const stored=ld('lastResetDate','');
+      const today=tod();
+      if(stored===today)return; // already reset today
+      sv('lastResetDate',today);
+
+      // Reset tasks вЂ” check each recurrence period individually
+      setTasks(ts=>{
+        const now=new Date();
+        return ts
+          .map(t=>{
+            if(t.recur==='none') return t; // no recurrence вЂ” leave as-is
+            if(!t.done) return t;           // not done yet вЂ” no reset needed
+
+            // Check if enough time has passed since it was last done
+            const lastDone=t.lastDone?new Date(t.lastDone):null;
+            if(!lastDone) return {...t,done:false,lastDone:null};
+
+            const daysDiff=Math.floor((now-lastDone)/(1000*60*60*24));
+            let shouldReset=false;
+            if(t.recur==='daily')   shouldReset=daysDiff>=1;
+            if(t.recur==='weekly')  shouldReset=daysDiff>=7;
+            if(t.recur==='monthly') shouldReset=now.getMonth()!==lastDone.getMonth()||now.getFullYear()!==lastDone.getFullYear();
+            if(t.recur==='yearly')  shouldReset=now.getFullYear()!==lastDone.getFullYear();
+
+            return shouldReset?{...t,done:false,lastDone:null}:t;
+          })
+          .filter(t=>!t.done); // remove completed non-recurring tasks
+      });
+
+      // Refresh habits window (shift the 30/90-day strip to include new today)
+      setHabits(hs=>{
+        const d90=mkDates(90);
+        return hs.map(h=>ensDays(h,d90));
+      });
+    }
+
+    doReset(); // check on mount / tab focus
+
+    // Re-check when tab becomes visible (user opens app after midnight)
+    function onVisible(){if(document.visibilityState==='visible')doReset();}
+    document.addEventListener('visibilitychange',onVisible);
+
+    // Schedule timer to fire exactly at next midnight
+    function schedMidnight(){
+      const now=new Date();
+      const ms=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1,0,0,0,0)-now;
+      return setTimeout(()=>{doReset();schedMidnight();},ms+500); // +500ms buffer
+    }
+    const timer=schedMidnight();
+
+    return ()=>{
+      document.removeEventListener('visibilitychange',onVisible);
+      clearTimeout(timer);
+    };
+  },[]);
+  function go(id){
+    if(id===tab)return;
+    setTab(id);
+  }
+  function convertToHabit(id){
+    const task=tasks.find(t=>t.id===id);if(!task)return;
+    const d90=mkDates(90);
+    setHabits(hs=>[ensDays({id:Date.now(),text:task.text,notes:task.notes||'',colorIdx:hs.length%6,days:[],totalReps:0},d90),...hs]);
+    setTasks(ts=>ts.filter(t=>t.id!==id));
+    go(1);
+  }
+
+  const T=dark?DT:LT;
+  return <Cx.Provider value={{dark,T}}>
+    <div style={{height:'100dvh',display:'flex',flexDirection:'column',background:T.bg,overflow:'hidden',transition:'background .3s',color:T.text}}>
+      {onboarding&&<Onboarding onDone={()=>{localStorage.setItem('onb2','1');setOnboarding(false);}}/>}
+      <div style={{flex:1,overflow:'hidden',maxWidth:600,width:'100%',margin:'0 auto',padding:'0 16px',position:'relative'}}>
+        {/* All tabs always mounted вЂ” state preserved. Slide between them via CSS. */}
+        {[0,1,2].map(tid=>{
+          const active=tid===tab;
+          // inactive tabs sit to the left or right depending on their id vs active tab
+          const offset=active?0:(tid<tab?-100:100);
+          return <div key={tid} style={{
+            position:'absolute',inset:0,padding:'0 16px',
+            display:'flex',flexDirection:'column',
+            opacity:active?1:0,
+            pointerEvents:active?'auto':'none',
+            transform:'translateX('+offset+'%)',
+            transition:'transform .34s cubic-bezier(.4,0,.2,1), opacity .28s cubic-bezier(.4,0,.2,1)',
+          }}>
+            {tid===0&&<DailyTab tasks={tasks} setTasks={setTasks} lists={lists} setLists={setLists} convertToHabit={convertToHabit} dark={dark} onToggleDark={()=>setDark(d=>!d)}/>}
+            {tid===1&&<HabitsTab habits={habits} setHabits={setHabits} dark={dark} onToggleDark={()=>setDark(d=>!d)}/>}
+            {tid===2&&<SRTab dark={dark} onToggleDark={()=>setDark(d=>!d)}/>}
+          </div>;
+        })}
+      </div>
+      {/* Tab bar - 3 items only */}
+      <div style={{flexShrink:0,background:T.tb,backdropFilter:BL,WebkitBackdropFilter:BL,borderTop:'0.5px solid '+T.sep}}>
+        <div style={{maxWidth:600,margin:'0 auto',display:'flex',alignItems:'center',padding:'8px 12px 10px'}}>
+          <div style={{flex:1,display:'flex',gap:3,background:dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.04)',borderRadius:16,padding:3}}>
+            {TABS.map(t=>{
+              const act=tab===t.id;
+              return <button key={t.id} onClick={()=>go(t.id)} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:3,padding:'7px 0 6px',borderRadius:12,border:'none',cursor:'pointer',background:act?T.card:'transparent',boxShadow:act?'0 1px 6px '+T.sh:'none',transition:'all .22s cubic-bezier(.34,1.2,.64,1)',color:act?T.ton:T.toff}}>
+                <t.Icon c={act?T.ton:T.toff} s={20}/>
+                <span style={{fontSize:10,fontWeight:act?700:500,letterSpacing:.1}}>{t.l}</span>
+              </button>;
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  </Cx.Provider>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+</script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .catch(err => console.log('SW error:', err));
+  });
+}
+</script>
+</body>
+</html>
+
