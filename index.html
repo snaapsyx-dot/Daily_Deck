@@ -1246,18 +1246,19 @@ function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
   return <div style={{position:'relative'}}>
     {items.map((item,idx)=>{
       const isDrag=idx===src;
+      const handleProps={
+        onPointerDown:e=>onPs(idx,e),
+        style:{cursor:'grab',touchAction:'none',WebkitUserSelect:'none',userSelect:'none'},
+      };
       return <div
         key={keyFn(item,idx)}
         ref={el=>refs.current[idx]=el}
-        onPointerDown={e=>onPs(idx,e)}
         onPointerMove={onPm}
         onPointerUp={onPe}
         onPointerCancel={onPe}
         onContextMenu={e=>e.preventDefault()}
-        style={{marginBottom:gap,touchAction:'pan-y',position:'relative',borderRadius:28,
-          willChange:'transform',
-        }}
-      >{renderItem(item,idx,isDrag)}</div>;
+        style={{marginBottom:gap,touchAction:'pan-y',position:'relative',borderRadius:28,willChange:'transform'}}
+      >{renderItem(item,idx,isDrag,handleProps)}</div>;
     })}
   </div>;
 }
@@ -1352,12 +1353,12 @@ function HabitCardsList({habits,setHabits,tday,d30,toggleDay,setDayState,setDayV
   if(habits.length===0)return <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:T.muted,fontSize:16}}>Нет привычек</div>;
 
   return <div className='no-select' style={{flex:1,overflowY:'auto',paddingTop:8,paddingBottom:8}}>
-    <SortableList items={habits} keyFn={h=>h.id} onReorder={reorder} renderItem={(h,idx,isDrag)=>{
+    <SortableList items={habits} keyFn={h=>h.id} onReorder={reorder} renderItem={(h,idx,isDrag,handleProps)=>{
       const p=pof(h.colorIdx);const str=streak(h);const td=h.days?.find(d=>d.date===tday)?.state||null;
       return <div style={{background:p.bg,borderRadius:28,boxShadow:isDrag?'0 20px 50px rgba(0,0,0,.25)':'0 4px 20px rgba(0,0,0,.07)'}}>
         <div style={{padding:'18px 20px'}}>
           <div style={{display:'flex',alignItems:'flex-start',gap:8,marginBottom:12}}>
-            <div style={{width:18,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:6,opacity:.2}}>
+            <div {...handleProps} style={{...(handleProps?.style),width:18,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:6,opacity:.25}}>
               <svg width="10" height="16" viewBox="0 0 10 16" fill={p.text}>
                 <circle cx="3" cy="2" r="1.5"/><circle cx="3" cy="8" r="1.5"/><circle cx="3" cy="14" r="1.5"/>
                 <circle cx="8" cy="2" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="14" r="1.5"/>
@@ -1833,27 +1834,41 @@ function ChatMessage({msg,isOwn,chatId,myUid,onAddTask}){
   }
 
   const canAct=!isOwn&&!accepted&&!declined;
-  const cardIcon=isTask?'📋':isStack?'📚':'🔄';
-  const cardTitle=isTask?(msg.task?.text||'Задача'):isStack?`Стопка · ${(msg.tasks||[]).length} карточек`:(msg.habit?.text||'Привычка');
+  const typeMap={
+    task:{accent:'#007aff',bg:'rgba(0,122,255,.09)',label:'Задача',icon:'📋'},
+    stack:{accent:'#5856d6',bg:'rgba(88,86,214,.09)',label:'Стопка',icon:'📚'},
+    habit:{accent:'#30d158',bg:'rgba(48,209,88,.09)',label:'Совместная привычка',icon:'🔄'},
+  };
+  const tm=typeMap[msg.type]||typeMap.task;
+  const cardTitle=isTask?(msg.task?.text||'Задача'):isStack?`${(msg.tasks||[]).length} карточек`:(msg.habit?.text||'Привычка');
 
   const inner=<div className={!isOwn&&msg.status==='pending'?'card-in':''} style={{
-    background:T.card,borderRadius:18,padding:'14px 16px',maxWidth:280,
-    boxShadow:'0 4px 24px rgba(0,0,0,.13)',border:'0.5px solid '+T.sep
+    background:T.card,borderRadius:18,overflow:'hidden',maxWidth:272,
+    boxShadow:'0 6px 28px rgba(0,0,0,.14)',border:'0.5px solid '+T.sep
   }}>
-    <div style={{fontSize:24,marginBottom:8}}>{cardIcon}</div>
-    <div style={{fontWeight:700,fontSize:15,color:T.text,marginBottom:4,lineHeight:1.3}}>{cardTitle}</div>
-    {isStack&&msg.tasks?.length>0&&<div style={{fontSize:12,color:T.sub,marginBottom:4}}>{msg.tasks.slice(0,3).map(t=>t.text).join(', ')}{msg.tasks.length>3?'...':''}</div>}
-    {isHabit&&msg.habit?.weekdays?.length>0&&<div style={{fontSize:12,color:T.sub,marginBottom:4}}>{msg.habit.weekdays.map(d=>WD[d]).join(' · ')}</div>}
-    {canAct&&<div style={{display:'flex',gap:8,marginTop:12}}>
-      <button onClick={e=>{e.stopPropagation();decline();}} style={{flex:1,padding:'9px 0',borderRadius:12,border:'none',background:'rgba(255,59,48,.1)',color:'#ff3b30',fontSize:14,fontWeight:600,cursor:'pointer'}}>Отклонить</button>
-      <button onClick={e=>{e.stopPropagation();accept();}} style={{flex:1,padding:'9px 0',borderRadius:12,border:'none',background:T.pill,color:T.pillTxt,fontSize:14,fontWeight:600,cursor:'pointer'}}>Принять</button>
-    </div>}
-    {accepted&&!isOwn&&<div style={{fontSize:13,color:'#30d158',fontWeight:500,marginTop:8}}>✓ Принято</div>}
+    {/* Colored header */}
+    <div style={{background:tm.bg,padding:'12px 14px',borderBottom:'0.5px solid '+tm.accent+'33',display:'flex',alignItems:'center',gap:10}}>
+      <span style={{fontSize:22,flexShrink:0}}>{tm.icon}</span>
+      <div style={{minWidth:0}}>
+        <div style={{fontSize:10,fontWeight:800,color:tm.accent,letterSpacing:.8,textTransform:'uppercase',marginBottom:2}}>{tm.label}</div>
+        <div style={{fontSize:15,fontWeight:700,color:T.text,lineHeight:1.25,overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{cardTitle}</div>
+      </div>
+    </div>
+    {/* Body */}
+    <div style={{padding:'10px 14px'}}>
+      {isStack&&msg.tasks?.length>0&&<div style={{fontSize:12,color:T.sub,marginBottom:8,lineHeight:1.5}}>{msg.tasks.slice(0,3).map(t=>t.text).join(' · ')}{msg.tasks.length>3?` +${msg.tasks.length-3}`:''}</div>}
+      {isHabit&&msg.habit?.weekdays?.length>0&&<div style={{fontSize:12,color:T.sub,marginBottom:8}}>{msg.habit.weekdays.map(d=>WD[d]).join(' · ')}</div>}
+      {canAct&&<div style={{display:'flex',gap:7}}>
+        <button onClick={e=>{e.stopPropagation();decline();}} style={{flex:1,padding:'8px 0',borderRadius:11,border:'none',background:'rgba(255,59,48,.1)',color:'#ff3b30',fontSize:14,fontWeight:600,cursor:'pointer'}}>Отклонить</button>
+        <button onClick={e=>{e.stopPropagation();accept();}} style={{flex:1,padding:'8px 0',borderRadius:11,border:'none',background:tm.accent,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer'}}>Принять</button>
+      </div>}
+      {accepted&&!isOwn&&<div style={{fontSize:13,color:'#30d158',fontWeight:600}}>✓ Принято</div>}
+    </div>
   </div>;
 
   if(canAct){
-    return <div style={{display:'flex',justifyContent:'flex-start',alignItems:'center',gap:6}}>
-      <div style={{fontSize:16,color:T.muted,opacity:.5,flexShrink:0}}>←</div>
+    return <div style={{display:'flex',justifyContent:'flex-start',alignItems:'center',gap:8}}>
+      <div style={{fontSize:13,color:T.muted,opacity:.4,flexShrink:0,userSelect:'none'}}>←</div>
       <SwipeCard onDecline={decline}>{inner}</SwipeCard>
     </div>;
   }
@@ -2113,39 +2128,67 @@ function SharedHabitCard({sh,myUid,dark}){
   const d30=mkDates(30);
   const tracking=sh.tracking||{};
   const otherUid=(sh.participants||[]).find(u=>u!==myUid);
+  const tday=tod();
 
   function getVal(uid,date){
     const key='d_'+date.replace(/[\s,]/g,'_');
     return !!(tracking[uid]&&tracking[uid][key]);
   }
   async function toggle(date){
-    const val=getVal(myUid,date);
-    await toggleSharedHabitDay(sh.id,myUid,date,!val);
+    await toggleSharedHabitDay(sh.id,myUid,date,!getVal(myUid,date));
   }
 
-  return <div style={{borderRadius:20,padding:'14px 16px',background:p.bg,marginBottom:10,boxShadow:'0 4px 20px rgba(0,0,0,.07)'}}>
-    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
-      <div style={{flex:1,fontSize:16,fontWeight:700,color:p.text,lineHeight:1.3}}>{sh.habit?.text}</div>
-      <span style={{fontSize:10,color:p.sub,background:'rgba(0,0,0,.08)',borderRadius:6,padding:'2px 8px',fontWeight:700,flexShrink:0}}>совместная</span>
-    </div>
-    {(sh.participants||[]).filter(Boolean).map((uid,ri)=>{
-      const isMe=uid===myUid;
-      return <div key={uid} style={{marginBottom:ri===0?6:0}}>
-        <div style={{fontSize:10,color:p.sub,marginBottom:3,fontWeight:700,letterSpacing:.5}}>{isMe?'Я':'Друг'}</div>
-        <div style={{display:'flex',gap:3,overflowX:'auto'}}>
-          {d30.map(date=>{
-            const done=getVal(uid,date);
-            const isToday=date===tod();
-            return <div key={date} onClick={isMe?()=>toggle(date):undefined}
-              style={{width:20,height:20,borderRadius:6,flexShrink:0,
-                background:done?p.dot:'rgba(0,0,0,.1)',
-                border:isToday?('2px solid '+p.dot):'2px solid transparent',
-                cursor:isMe?'pointer':'default',transition:'background .2s'
-              }}/>;
-          })}
+  function MiniStrip({uid,isMe,label}){
+    const ref=useRef(null);
+    useEffect(()=>{if(ref.current)ref.current.scrollLeft=ref.current.scrollWidth;},[]);
+    return <div>
+      <div style={{fontSize:9,fontWeight:700,color:p.sub,letterSpacing:.6,textTransform:'uppercase',marginBottom:3,opacity:.8}}>{label}</div>
+      <div ref={ref} style={{display:'flex',gap:3,overflowX:'auto',scrollbarWidth:'none',msOverflowStyle:'none',paddingBottom:2}} onTouchStart={e=>e.stopPropagation()} onTouchMove={e=>e.stopPropagation()}>
+        {d30.map((date,i)=>{
+          const done=getVal(uid,date);
+          const isT=date===tday;
+          const d=new Date(date);
+          const showM=i===0||new Date(d30[i-1]).getMonth()!==d.getMonth();
+          return <div key={date} style={{display:'flex',flexDirection:'column',alignItems:'center',flexShrink:0,width:26}}>
+            <div style={{fontSize:7,fontWeight:700,color:p.sub,height:10,display:'flex',alignItems:'center',opacity:showM?.9:0}}>{showM?MOS[d.getMonth()]:''}</div>
+            <div style={{fontSize:8,color:isT?p.text:p.sub,fontWeight:isT?700:400,marginBottom:1,lineHeight:1}}>{WD[d.getDay()]}</div>
+            <div onClick={isMe?()=>toggle(date):undefined}
+              style={{width:22,height:22,borderRadius:7,
+                background:done?p.dot:(isT?'rgba(0,0,0,.06)':'rgba(0,0,0,.08)'),
+                border:isT?`1.5px solid ${p.dot}`:'1.5px solid transparent',
+                cursor:isMe?'pointer':'default',
+                display:'flex',alignItems:'center',justifyContent:'center',
+                transition:'background .18s',
+              }}>
+              {done&&<IcCheck c="#fff" s={9} sw={2.5}/>}
+            </div>
+          </div>;
+        })}
+      </div>
+    </div>;
+  }
+
+  return <div style={{background:p.bg,borderRadius:28,boxShadow:'0 4px 20px rgba(0,0,0,.07)',marginBottom:16}}>
+    <div style={{padding:'18px 20px'}}>
+      {/* Header — как обычная карта привычки */}
+      <div style={{display:'flex',alignItems:'flex-start',gap:8,marginBottom:12}}>
+        <div style={{width:18,flexShrink:0,marginTop:6,opacity:.2}}>
+          <svg width="10" height="16" viewBox="0 0 10 16" fill={p.text}>
+            <circle cx="3" cy="2" r="1.5"/><circle cx="3" cy="8" r="1.5"/><circle cx="3" cy="14" r="1.5"/>
+            <circle cx="8" cy="2" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="14" r="1.5"/>
+          </svg>
         </div>
-      </div>;
-    })}
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:19,fontWeight:700,color:p.text,lineHeight:1.3,letterSpacing:-.3}}>{sh.habit?.text}</div>
+          {sh.habit?.weekdays?.length>0&&<div style={{fontSize:12,color:p.sub,marginTop:5,fontWeight:600}}>{sh.habit.weekdays.map(d=>WD[d]).join(' · ')}</div>}
+        </div>
+        <span style={{fontSize:10,color:p.sub,background:'rgba(0,0,0,.1)',borderRadius:7,padding:'3px 8px',fontWeight:700,flexShrink:0,marginTop:2}}>совместная</span>
+      </div>
+      {/* Два DayStrip */}
+      <MiniStrip uid={myUid} isMe={true} label="Я"/>
+      <div style={{height:10}}/>
+      {otherUid&&<MiniStrip uid={otherUid} isMe={false} label="Друг"/>}
+    </div>
   </div>;
 }
 
@@ -2562,24 +2605,22 @@ function App(){
           </div>;
         })}
       </div>
-      {/* Tab bar - 3 items only */}
+      {/* Tab bar */}
       <div style={{flexShrink:0,background:T.tb,backdropFilter:BL,WebkitBackdropFilter:BL,borderTop:'0.5px solid '+T.sep}}>
-        <div style={{maxWidth:ui.isPhone?'100%':600,margin:'0 auto',display:'flex',alignItems:'center',gap:8,padding:ui.isPhone?'10px 8px 12px':'8px 12px 10px'}}>
-          <div style={{flex:1,display:'flex',gap:3,background:dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.04)',borderRadius:16,padding:3}}>
-            {TABS.map(t=>{
-              const act=tab===t.id;
-              return <button key={t.id} onClick={()=>go(t.id)} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:ui.isPhone?4:3,padding:ui.isPhone?'9px 0 8px':'7px 0 6px',borderRadius:12,border:'none',cursor:'pointer',background:act?T.card:'transparent',boxShadow:act?'0 1px 6px '+T.sh:'none',transition:'all .22s cubic-bezier(.34,1.2,.64,1)',color:act?T.ton:T.toff}}>
-                <t.Icon c={act?T.ton:T.toff} s={ui.isPhone?22:20}/>
-                <span style={{fontSize:ui.isPhone?11:10,fontWeight:act?700:500,letterSpacing:.1}}>{t.l}</span>
-              </button>;
-            })}
-          </div>
-          {FB_READY&&<button onClick={()=>authUser?setShowAccount(true):setShowAuth(true)} style={{width:ui.isPhone?40:34,height:ui.isPhone?40:34,borderRadius:ui.isPhone?12:10,border:'0.5px solid '+T.sep,background:authUser?'linear-gradient(135deg,#5856d6,#007aff)':T.ctrl,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:BL,WebkitBackdropFilter:BL,flexShrink:0,position:'relative'}}>
-            {authUser
-              ?<span style={{fontSize:ui.isPhone?15:13,fontWeight:700,color:'#fff'}}>{(authUser.email||'?')[0].toUpperCase()}</span>
-              :<IcUser c={T.ctrlTxt} s={ui.isPhone?18:16} sw={1.8}/>
-            }
-            {authUser&&syncStatus!=='idle'&&<div style={{position:'absolute',top:4,right:4,width:6,height:6,borderRadius:'50%',background:syncStatus==='syncing'?'#ff9500':syncStatus==='synced'?'#30d158':'#ff453a',border:'1px solid '+T.tb,transition:'background .3s'}}/>}
+        <div style={{maxWidth:ui.isPhone?'100%':600,margin:'0 auto',display:'flex',alignItems:'stretch'}}>
+          {TABS.map(t=>{
+            const act=tab===t.id;
+            return <button key={t.id} onClick={()=>go(t.id)} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:ui.isPhone?3:2,padding:ui.isPhone?'10px 4px 14px':'8px 4px 10px',border:'none',cursor:'pointer',background:'transparent',color:act?T.ton:T.toff,transition:'color .18s',WebkitTapHighlightColor:'transparent'}}>
+              <t.Icon c={act?T.ton:T.toff} s={ui.isPhone?23:20}/>
+              <span style={{fontSize:ui.isPhone?10:9,fontWeight:act?700:400,transition:'font-weight .18s'}}>{t.l}</span>
+            </button>;
+          })}
+          {FB_READY&&<button onClick={()=>authUser?setShowAccount(true):setShowAuth(true)} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:ui.isPhone?3:2,padding:ui.isPhone?'10px 4px 14px':'8px 4px 10px',border:'none',cursor:'pointer',background:'transparent',WebkitTapHighlightColor:'transparent',position:'relative'}}>
+            <div style={{width:ui.isPhone?23:20,height:ui.isPhone?23:20,borderRadius:'50%',background:authUser?'linear-gradient(135deg,#5856d6,#007aff)':T.ctrl,display:'flex',alignItems:'center',justifyContent:'center',border:authUser?'none':'0.5px solid '+T.sep}}>
+              {authUser?<span style={{fontSize:ui.isPhone?11:9,fontWeight:700,color:'#fff'}}>{(authUser.email||'?')[0].toUpperCase()}</span>:<IcUser c={T.ctrlTxt} s={ui.isPhone?13:11} sw={1.8}/>}
+            </div>
+            <span style={{fontSize:ui.isPhone?10:9,fontWeight:400,color:T.toff}}>Аккаунт</span>
+            {authUser&&syncStatus!=='idle'&&<div style={{position:'absolute',top:8,left:'50%',transform:'translateX(6px)',width:6,height:6,borderRadius:'50%',background:syncStatus==='syncing'?'#ff9500':syncStatus==='synced'?'#30d158':'#ff453a',border:'1.5px solid '+T.tb}}/>}
           </button>}
         </div>
       </div>
