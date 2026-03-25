@@ -2049,7 +2049,7 @@ function ChatTab({authUser,tasks,habits,onAddTask}){
       setOpenChat({id:cid,otherUid:prof.uid});
       setShowSearch(false);setSearchEmail('');setSearchRes(null);setSearchErr('');
     }catch(e){
-      setSearchErr('Ошибка: проверьте правила Firestore (permissions)');
+      setSearchErr('Ошибка: '+(e?.message||e?.code||String(e)));
     }
   }
 
