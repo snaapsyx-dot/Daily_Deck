@@ -2003,9 +2003,9 @@ function ChatTab({authUser,tasks,habits,onAddTask}){
     if(!authUser||!_db)return;
     const unsub=_db.collection('chats')
       .where('participants','array-contains',authUser.uid)
-      .orderBy('lastTs','desc')
       .onSnapshot(async snap=>{
         const data=snap.docs.map(d=>({id:d.id,...d.data()}));
+        data.sort((a,b)=>(b.lastTs?.seconds||0)-(a.lastTs?.seconds||0));
         setChats(data);
         const uids=[...new Set(data.flatMap(c=>c.participants).filter(u=>u!==authUser.uid))];
         const profs={};
@@ -2041,10 +2041,14 @@ function ChatTab({authUser,tasks,habits,onAddTask}){
     setSearching(false);
   }
   async function openWithUser(prof){
-    const cid=await getOrCreateChat(authUser.uid,prof.uid);
-    setProfiles(p=>({...p,[prof.uid]:prof}));
-    setOpenChat({id:cid,otherUid:prof.uid});
-    setShowSearch(false);setSearchEmail('');setSearchRes(null);setSearchErr('');
+    try{
+      const cid=await getOrCreateChat(authUser.uid,prof.uid);
+      setProfiles(p=>({...p,[prof.uid]:prof}));
+      setOpenChat({id:cid,otherUid:prof.uid});
+      setShowSearch(false);setSearchEmail('');setSearchRes(null);setSearchErr('');
+    }catch(e){
+      setSearchErr('Ошибка: проверьте правила Firestore (permissions)');
+    }
   }
 
   return <div style={{flex:1,display:'flex',flexDirection:'column',paddingTop:ui.isPhone?18:14,overflow:'hidden'}}>
@@ -2370,9 +2374,8 @@ function App(){
     if(!authUser||!_db)return;
     const unsub=_db.collection('sharedHabits')
       .where('participants','array-contains',authUser.uid)
-      .where('status','==','active')
       .onSnapshot(snap=>{
-        setSharedHabits(snap.docs.map(d=>({...d.data(),id:d.id})));
+        setSharedHabits(snap.docs.map(d=>({...d.data(),id:d.id})).filter(sh=>sh.status==='active'));
       },e=>console.warn('sharedHabits listener:',e));
     return unsub;
   },[authUser?.uid]);
