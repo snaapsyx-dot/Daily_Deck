@@ -33,6 +33,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;-w
 @keyframes slideR{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}
 .sl{animation:slideL .32s cubic-bezier(.22,1,.36,1)}
 .sr{animation:slideR .32s cubic-bezier(.22,1,.36,1)}
+@keyframes cardIn{from{opacity:0;transform:translateY(24px) scale(.91)}to{opacity:1;transform:none}}
+@keyframes cardOff{to{opacity:0;transform:translateX(-115%) rotate(-13deg)}}
+.card-in{animation:cardIn .42s cubic-bezier(.22,1,.36,1)}
+.card-off{animation:cardOff .28s cubic-bezier(.4,0,1,1) forwards}
 
 *{-webkit-tap-highlight-color:transparent;}
 body{-webkit-user-select:none;user-select:none;}
@@ -57,6 +61,22 @@ const{useState,useEffect,useRef,createContext,useContext}=React;
  *   match /databases/{database}/documents {
  *     match /u/{uid} {
  *       allow read, write: if request.auth != null && request.auth.uid == uid;
+ *     }
+ *     match /profiles/{uid} {
+ *       allow read: if request.auth != null;
+ *       allow write: if request.auth != null && request.auth.uid == uid;
+ *     }
+ *     match /chats/{chatId} {
+ *       allow read, write: if request.auth != null && request.auth.uid in resource.data.participants;
+ *       allow create: if request.auth != null && request.auth.uid in request.resource.data.participants;
+ *       match /messages/{msgId} {
+ *         allow read, write: if request.auth != null &&
+ *           request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+ *       }
+ *     }
+ *     match /sharedHabits/{habitId} {
+ *       allow read, write: if request.auth != null && request.auth.uid in resource.data.participants;
+ *       allow create: if request.auth != null && request.auth.uid in request.resource.data.participants;
  *     }
  *   }
  * }
@@ -140,6 +160,51 @@ async function cloudPush(uid, tasks, lists, habits, key, salt) {
     ts: firebase.firestore.FieldValue.serverTimestamp()
   });
 }
+/* ===== SOCIAL / CHAT ===== */
+function chatDocId(a,b){return[a,b].sort().join('_');}
+async function ensureProfile(uid,email){
+  if(!_db)return;
+  try{await _db.collection('profiles').doc(uid).set({uid,email,name:email.split('@')[0]},{merge:true});}catch(e){}
+}
+async function searchProfileByEmail(email){
+  if(!_db)return null;
+  const s=await _db.collection('profiles').where('email','==',email.trim().toLowerCase()).limit(1).get();
+  return s.empty?null:{...s.docs[0].data(),uid:s.docs[0].id};
+}
+async function getOrCreateChat(uid1,uid2){
+  const cid=chatDocId(uid1,uid2);
+  const ref=_db.collection('chats').doc(cid);
+  const d=await ref.get();
+  if(!d.exists)await ref.set({participants:[uid1,uid2],lastMsg:'',lastTs:firebase.firestore.FieldValue.serverTimestamp()});
+  return cid;
+}
+async function sendChatMsg(cid,from,type,content){
+  const base={type,from,ts:firebase.firestore.FieldValue.serverTimestamp()};
+  if(type!=='text')base.status='pending';
+  await _db.collection('chats').doc(cid).collection('messages').add({...base,...content});
+  const prev=type==='text'?content.text:type==='task'?'📋 Карточка':type==='stack'?'📚 Стопка карточек':'🔄 Совместная привычка';
+  await _db.collection('chats').doc(cid).update({lastMsg:prev,lastTs:firebase.firestore.FieldValue.serverTimestamp()});
+}
+async function setChatMsgStatus(cid,mid,status){
+  await _db.collection('chats').doc(cid).collection('messages').doc(mid).update({status});
+}
+async function createSharedHabitDoc(uid1,uid2,habit){
+  const id='sh_'+Date.now();
+  await _db.collection('sharedHabits').doc(id).set({
+    id,status:'pending',participants:[uid1,uid2],invitedBy:uid1,
+    habit:{text:habit.text,colorIdx:habit.colorIdx||0,weekdays:habit.weekdays||[]},
+    tracking:{},createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  });
+  return id;
+}
+async function activateSharedHabit(shId){
+  try{await _db.collection('sharedHabits').doc(shId).update({status:'active'});}catch(e){}
+}
+async function toggleSharedHabitDay(shId,uid,dateStr,val){
+  const key='d_'+dateStr.replace(/[\s,]/g,'_');
+  try{await _db.collection('sharedHabits').doc(shId).update({[`tracking.${uid}.${key}`]:val});}catch(e){}
+}
+
 // Merge по id: данные из b перезаписывают a при конфликте
 function mergeArr(a, b) {
   const m = new Map();
@@ -200,6 +265,9 @@ const IcChevL  =Ic('<polyline points="15 18 9 12 15 6"/>');
 const IcChevR  =Ic('<polyline points="9 18 15 12 9 6"/>');
 const IcChevU  =Ic('<polyline points="18 15 12 9 6 15"/>');
 const IcChevD  =Ic('<polyline points="6 9 12 15 18 9"/>');
+const IcChat   =Ic('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>');
+const IcSend   =Ic('<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>');
+const IcUserPl =Ic('<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>');
 
 /* ===== SHARED UI ===== */
 function GlassBtn({onClick,children,danger,style={}}){
@@ -1315,7 +1383,7 @@ function HabitCardsList({habits,setHabits,tday,d30,toggleDay,setDayState,setDayV
 }
 
 /* ===== TAB 2: HABITS ===== */
-function HabitsTab({habits,setHabits,dark,onToggleDark}){
+function HabitsTab({habits,setHabits,dark,onToggleDark,sharedHabits=[],myUid}){
   const{T,ui}=useT();
   const P=dark?PD:PL;
   const pof=n=>P[Math.min(Math.max(n||0,0),P.length-1)];
@@ -1448,8 +1516,14 @@ function HabitsTab({habits,setHabits,dark,onToggleDark}){
           {donT.length>0&&<div style={{position:'absolute',bottom:8,right:8,background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:12,padding:'5px 11px',border:'0.5px solid '+T.sep}}><span style={{fontSize:12,fontWeight:600,color:T.sub}}>✓ {donT.length}</span></div>}
         </>}
     </div>}
-    {/* Cards mode вЂ” long press to drag reorder */}
-    {mode==='cards'&&<HabitCardsList habits={visibleHabits} setHabits={setHabits} tday={tday} d30={d30} toggleDay={toggleDay} setDayState={setDayState} setDayValue={setDayValue} streak={streak} setEditH={setEditH}/>}
+    {/* Cards mode — long press to drag reorder */}
+    {mode==='cards'&&<>
+      {sharedHabits.length>0&&<div style={{flexShrink:0,paddingTop:8}}>
+        {sharedHabits.map(sh=><SharedHabitCard key={sh.id} sh={sh} myUid={myUid} dark={dark}/>)}
+        {visibleHabits.length>0&&<div style={{height:1,background:'rgba(120,120,128,.15)',marginBottom:4}}/>}
+      </div>}
+      <HabitCardsList habits={visibleHabits} setHabits={setHabits} tday={tday} d30={d30} toggleDay={toggleDay} setDayState={setDayState} setDayValue={setDayValue} streak={streak} setEditH={setEditH}/>
+    </>}
   </div>;
 }
 
@@ -1697,11 +1771,384 @@ function Onboarding({onDone}){
 }
 
 
+/* ===== SWIPE CARD (для отклонения карточек в чате) ===== */
+function SwipeCard({children,onDecline}){
+  const startX=useRef(0);
+  const [dx,setDx]=useState(0);
+  const [out,setOut]=useState(false);
+  function ts(e){startX.current=e.touches[0].clientX;}
+  function tm(e){const d=e.touches[0].clientX-startX.current;if(d<0)setDx(d);}
+  function te(){
+    if(dx<-80){setOut(true);setTimeout(()=>onDecline&&onDecline(),280);}
+    setDx(0);
+  }
+  return <div onTouchStart={ts} onTouchMove={tm} onTouchEnd={te}
+    className={out?'card-off':''}
+    style={{transform:out?undefined:`translateX(${dx}px)`,transition:dx===0&&!out?'transform .3s':undefined}}>
+    {children}
+  </div>;
+}
+
+/* ===== CHAT MESSAGE ===== */
+function ChatMessage({msg,isOwn,chatId,myUid,onAddTask}){
+  const{T,ui}=useT();
+  const[declined,setDeclined]=useState(msg.status==='declined');
+  const[accepted,setAccepted]=useState(msg.status==='accepted');
+  const isText=msg.type==='text';
+  const isTask=msg.type==='task';
+  const isStack=msg.type==='stack';
+  const isHabit=msg.type==='habit';
+
+  async function accept(){
+    await setChatMsgStatus(chatId,msg.id,'accepted');
+    setAccepted(true);
+    if(isTask&&onAddTask)onAddTask({...msg.task,id:Date.now(),done:false});
+    if(isStack&&onAddTask)(msg.tasks||[]).forEach((t,i)=>onAddTask({...t,id:Date.now()+i,done:false}));
+    if(isHabit&&msg.sharedHabitId)await activateSharedHabit(msg.sharedHabitId);
+  }
+  async function decline(){
+    await setChatMsgStatus(chatId,msg.id,'declined');
+    setDeclined(true);
+  }
+
+  if(isText){
+    return <div style={{display:'flex',justifyContent:isOwn?'flex-end':'flex-start'}}>
+      <div style={{maxWidth:'78%',padding:'9px 14px',borderRadius:isOwn?'18px 18px 4px 18px':'18px 18px 18px 4px',background:isOwn?T.pill:'rgba(120,120,128,.15)',color:isOwn?T.pillTxt:T.text,fontSize:15,lineHeight:1.4,wordBreak:'break-word'}}>
+        {msg.text}
+      </div>
+    </div>;
+  }
+
+  if(declined){
+    return <div style={{display:'flex',justifyContent:isOwn?'flex-end':'flex-start'}}>
+      <div style={{fontSize:13,color:T.muted,fontStyle:'italic',padding:'4px 0'}}>{isOwn?'Получатель отклонил':'Вы отклонили'}</div>
+    </div>;
+  }
+  if(accepted&&isOwn){
+    return <div style={{display:'flex',justifyContent:'flex-end'}}>
+      <div style={{fontSize:13,color:'#30d158',fontWeight:500,padding:'4px 0'}}>✓ Принято</div>
+    </div>;
+  }
+
+  const canAct=!isOwn&&!accepted&&!declined;
+  const cardIcon=isTask?'📋':isStack?'📚':'🔄';
+  const cardTitle=isTask?(msg.task?.text||'Задача'):isStack?`Стопка · ${(msg.tasks||[]).length} карточек`:(msg.habit?.text||'Привычка');
+
+  const inner=<div className={!isOwn&&msg.status==='pending'?'card-in':''} style={{
+    background:T.card,borderRadius:18,padding:'14px 16px',maxWidth:280,
+    boxShadow:'0 4px 24px rgba(0,0,0,.13)',border:'0.5px solid '+T.sep
+  }}>
+    <div style={{fontSize:24,marginBottom:8}}>{cardIcon}</div>
+    <div style={{fontWeight:700,fontSize:15,color:T.text,marginBottom:4,lineHeight:1.3}}>{cardTitle}</div>
+    {isStack&&msg.tasks?.length>0&&<div style={{fontSize:12,color:T.sub,marginBottom:4}}>{msg.tasks.slice(0,3).map(t=>t.text).join(', ')}{msg.tasks.length>3?'...':''}</div>}
+    {isHabit&&msg.habit?.weekdays?.length>0&&<div style={{fontSize:12,color:T.sub,marginBottom:4}}>{msg.habit.weekdays.map(d=>WD[d]).join(' · ')}</div>}
+    {canAct&&<div style={{display:'flex',gap:8,marginTop:12}}>
+      <button onClick={e=>{e.stopPropagation();decline();}} style={{flex:1,padding:'9px 0',borderRadius:12,border:'none',background:'rgba(255,59,48,.1)',color:'#ff3b30',fontSize:14,fontWeight:600,cursor:'pointer'}}>Отклонить</button>
+      <button onClick={e=>{e.stopPropagation();accept();}} style={{flex:1,padding:'9px 0',borderRadius:12,border:'none',background:T.pill,color:T.pillTxt,fontSize:14,fontWeight:600,cursor:'pointer'}}>Принять</button>
+    </div>}
+    {accepted&&!isOwn&&<div style={{fontSize:13,color:'#30d158',fontWeight:500,marginTop:8}}>✓ Принято</div>}
+  </div>;
+
+  if(canAct){
+    return <div style={{display:'flex',justifyContent:'flex-start',alignItems:'center',gap:6}}>
+      <div style={{fontSize:16,color:T.muted,opacity:.5,flexShrink:0}}>←</div>
+      <SwipeCard onDecline={decline}>{inner}</SwipeCard>
+    </div>;
+  }
+  return <div style={{display:'flex',justifyContent:isOwn?'flex-end':'flex-start'}}>{inner}</div>;
+}
+
+/* ===== CHAT VIEW ===== */
+function ChatView({authUser,chatId,otherProfile,onBack,tasks,habits,onAddTask}){
+  const{T,ui}=useT();
+  const[messages,setMessages]=useState([]);
+  const[text,setText]=useState('');
+  const[sending,setSending]=useState(false);
+  const[showMenu,setShowMenu]=useState(false);
+  const[shareMode,setShareMode]=useState(null);
+  const[selTasks,setSelTasks]=useState([]);
+  const bottomRef=useRef(null);
+  const ia=IaStyle(T,ui);
+
+  useEffect(()=>{
+    if(!_db)return;
+    const unsub=_db.collection('chats').doc(chatId).collection('messages')
+      .orderBy('ts','asc')
+      .onSnapshot(snap=>{
+        setMessages(snap.docs.map(d=>({id:d.id,...d.data()})));
+        requestAnimationFrame(()=>bottomRef.current?.scrollIntoView({behavior:'smooth'}));
+      },e=>console.warn('msgs:',e));
+    return unsub;
+  },[chatId]);
+
+  async function send(){
+    if(!text.trim()||sending)return;
+    setSending(true);
+    try{await sendChatMsg(chatId,authUser.uid,'text',{text:text.trim()});setText('');}catch(e){}
+    setSending(false);
+  }
+  async function sendTask(task){
+    await sendChatMsg(chatId,authUser.uid,'task',{task:{text:task.text,notes:task.notes||'',colorIdx:task.colorIdx||0}});
+    setShareMode(null);
+  }
+  async function sendStack(){
+    if(!selTasks.length)return;
+    const sel=tasks.filter(t=>selTasks.includes(t.id));
+    await sendChatMsg(chatId,authUser.uid,'stack',{tasks:sel.map(t=>({text:t.text,notes:t.notes||'',colorIdx:t.colorIdx||0}))});
+    setShareMode(null);setSelTasks([]);
+  }
+  async function sendHabit(habit){
+    const otherUid=otherProfile?.uid;if(!otherUid)return;
+    const shId=await createSharedHabitDoc(authUser.uid,otherUid,habit);
+    await sendChatMsg(chatId,authUser.uid,'habit',{habit:{text:habit.text,colorIdx:habit.colorIdx||0,weekdays:habit.weekdays||[]},sharedHabitId:shId});
+    setShareMode(null);
+  }
+
+  const btnBase={border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0};
+
+  return <div style={{flex:1,display:'flex',flexDirection:'column',height:'100%',overflow:'hidden'}}>
+    {/* Header */}
+    <div style={{display:'flex',alignItems:'center',gap:10,paddingBottom:12,borderBottom:'0.5px solid '+T.sep,flexShrink:0}}>
+      <button onClick={onBack} style={{...btnBase,background:'none',padding:'4px 0',width:28}}>
+        <IcChevL c={T.text} s={26} sw={2.2}/>
+      </button>
+      <div style={{width:38,height:38,borderRadius:19,background:'linear-gradient(135deg,#5856d6,#007aff)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:17,fontWeight:700,color:'#fff',flexShrink:0}}>
+        {(otherProfile?.name||otherProfile?.email||'?')[0].toUpperCase()}
+      </div>
+      <div style={{fontWeight:700,fontSize:17,color:T.text,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+        {otherProfile?.name||otherProfile?.email||'...'}
+      </div>
+    </div>
+    {/* Messages */}
+    <div style={{flex:1,overflowY:'auto',paddingTop:12,display:'flex',flexDirection:'column',gap:10}}>
+      {messages.length===0&&<div style={{textAlign:'center',color:T.muted,marginTop:50,fontSize:14}}>Начните переписку</div>}
+      {messages.map(msg=><ChatMessage key={msg.id} msg={msg} isOwn={msg.from===authUser.uid}
+        chatId={chatId} myUid={authUser.uid} onAddTask={onAddTask}/>)}
+      <div ref={bottomRef} style={{height:4}}/>
+    </div>
+    {/* Share picker panels */}
+    {shareMode==='task'&&<div style={{background:T.card,borderRadius:'16px 16px 0 0',border:'0.5px solid '+T.sep,maxHeight:220,display:'flex',flexDirection:'column',flexShrink:0}}>
+      <div style={{padding:'12px 16px 8px',fontWeight:700,color:T.text,fontSize:15,flexShrink:0}}>Выберите карточку</div>
+      <div style={{overflowY:'auto'}}>
+        {tasks.filter(t=>!t.done).map(t=><div key={t.id} onClick={()=>sendTask(t)}
+          style={{padding:'10px 16px',borderTop:'0.5px solid '+T.sep,cursor:'pointer',fontSize:15,color:T.text,WebkitTapHighlightColor:'transparent'}}>{t.text}</div>)}
+        {tasks.filter(t=>!t.done).length===0&&<div style={{padding:'16px',color:T.muted,fontSize:14}}>Нет активных задач</div>}
+      </div>
+    </div>}
+    {shareMode==='stack'&&<div style={{background:T.card,borderRadius:'16px 16px 0 0',border:'0.5px solid '+T.sep,maxHeight:240,display:'flex',flexDirection:'column',flexShrink:0}}>
+      <div style={{padding:'12px 16px 8px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
+        <span style={{fontWeight:700,color:T.text,fontSize:15}}>Выберите карточки</span>
+        <button onClick={sendStack} disabled={!selTasks.length} style={{background:selTasks.length?T.pill:T.ctrl,color:selTasks.length?T.pillTxt:T.ctrlTxt,border:'none',borderRadius:10,padding:'6px 12px',fontWeight:600,fontSize:13,cursor:selTasks.length?'pointer':'default'}}>Отправить {selTasks.length>0?`(${selTasks.length})`:''}</button>
+      </div>
+      <div style={{overflowY:'auto'}}>
+        {tasks.filter(t=>!t.done).map(t=>{
+          const sel=selTasks.includes(t.id);
+          return <div key={t.id} onClick={()=>setSelTasks(s=>sel?s.filter(x=>x!==t.id):[...s,t.id])}
+            style={{padding:'10px 16px',borderTop:'0.5px solid '+T.sep,cursor:'pointer',fontSize:15,color:T.text,display:'flex',alignItems:'center',gap:10}}>
+            <div style={{width:22,height:22,borderRadius:7,border:'1.5px solid '+(sel?'transparent':T.sep),background:sel?T.pill:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              {sel&&<IcCheck c={T.pillTxt} s={14} sw={2.5}/>}
+            </div>
+            {t.text}
+          </div>;
+        })}
+      </div>
+    </div>}
+    {shareMode==='habit'&&<div style={{background:T.card,borderRadius:'16px 16px 0 0',border:'0.5px solid '+T.sep,maxHeight:220,display:'flex',flexDirection:'column',flexShrink:0}}>
+      <div style={{padding:'12px 16px 8px',fontWeight:700,color:T.text,fontSize:15,flexShrink:0}}>Выберите привычку</div>
+      <div style={{overflowY:'auto'}}>
+        {habits.map(h=><div key={h.id} onClick={()=>sendHabit(h)}
+          style={{padding:'10px 16px',borderTop:'0.5px solid '+T.sep,cursor:'pointer',fontSize:15,color:T.text}}>🔄 {h.text}</div>)}
+        {habits.length===0&&<div style={{padding:'16px',color:T.muted,fontSize:14}}>Нет привычек</div>}
+      </div>
+    </div>}
+    {/* Input */}
+    <div style={{paddingTop:8,flexShrink:0,display:'flex',gap:8,alignItems:'center'}}>
+      <div style={{position:'relative'}}>
+        <button onClick={()=>{setShowMenu(m=>!m);if(shareMode)setShareMode(null);}}
+          style={{...btnBase,width:42,height:42,borderRadius:13,border:'0.5px solid '+T.sep,background:showMenu?T.pill:T.ctrl}}>
+          <IcPlus c={showMenu?T.pillTxt:T.ctrlTxt} s={20} sw={2}/>
+        </button>
+        {showMenu&&<div style={{position:'absolute',bottom:50,left:0,background:T.card,borderRadius:14,border:'0.5px solid '+T.sep,padding:'4px 0',minWidth:170,boxShadow:'0 8px 32px rgba(0,0,0,.18)',zIndex:20}}>
+          {[['task','📋 Карточку'],['stack','📚 Стопку карточек'],['habit','🔄 Привычку (совместную)']].map(([m,l])=>
+            <div key={m} onClick={()=>{setShareMode(shareMode===m?null:m);setShowMenu(false);}}
+              style={{padding:'11px 16px',fontSize:14,color:T.text,cursor:'pointer',WebkitTapHighlightColor:'transparent'}}>{l}</div>
+          )}
+        </div>}
+      </div>
+      <input value={text} onChange={e=>setText(e.target.value)}
+        onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}}}
+        placeholder="Сообщение..." style={{...ia,flex:1,padding:'10px 14px',fontSize:15}}/>
+      <button onClick={send} disabled={sending||!text.trim()}
+        style={{...btnBase,width:42,height:42,borderRadius:13,border:'none',background:text.trim()?T.pill:T.ctrl}}>
+        <IcSend c={text.trim()?T.pillTxt:T.ctrlTxt} s={16} sw={2}/>
+      </button>
+    </div>
+  </div>;
+}
+
+/* ===== CHAT TAB ===== */
+function ChatTab({authUser,tasks,habits,onAddTask}){
+  const{T,ui}=useT();
+  const[chats,setChats]=useState([]);
+  const[profiles,setProfiles]=useState({});
+  const[openChat,setOpenChat]=useState(null);
+  const[showSearch,setShowSearch]=useState(false);
+  const[searchEmail,setSearchEmail]=useState('');
+  const[searchRes,setSearchRes]=useState(null);
+  const[searchErr,setSearchErr]=useState('');
+  const[searching,setSearching]=useState(false);
+  const ia=IaStyle(T,ui);
+
+  useEffect(()=>{
+    if(!authUser||!_db)return;
+    const unsub=_db.collection('chats')
+      .where('participants','array-contains',authUser.uid)
+      .orderBy('lastTs','desc')
+      .onSnapshot(async snap=>{
+        const data=snap.docs.map(d=>({id:d.id,...d.data()}));
+        setChats(data);
+        const uids=[...new Set(data.flatMap(c=>c.participants).filter(u=>u!==authUser.uid))];
+        const profs={};
+        await Promise.all(uids.map(async uid=>{
+          try{const p=await _db.collection('profiles').doc(uid).get();if(p.exists)profs[uid]=p.data();}catch(e){}
+        }));
+        setProfiles(p=>({...p,...profs}));
+      },e=>console.warn('chats:',e));
+    return unsub;
+  },[authUser?.uid]);
+
+  if(!authUser){
+    return <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,paddingBottom:80}}>
+      <div style={{fontSize:56}}>💬</div>
+      <div style={{fontSize:18,fontWeight:700,color:T.text}}>Войдите в аккаунт</div>
+      <div style={{fontSize:14,color:T.sub,textAlign:'center',maxWidth:260,lineHeight:1.5}}>Делитесь задачами и привычками с друзьями</div>
+    </div>;
+  }
+  if(openChat){
+    return <ChatView authUser={authUser} chatId={openChat.id}
+      otherProfile={profiles[openChat.otherUid]||{name:'...',email:''}}
+      onBack={()=>setOpenChat(null)} tasks={tasks} habits={habits} onAddTask={onAddTask}/>;
+  }
+
+  async function doSearch(){
+    setSearching(true);setSearchErr('');setSearchRes(null);
+    try{
+      const p=await searchProfileByEmail(searchEmail);
+      if(!p)setSearchErr('Пользователь не найден');
+      else if(p.uid===authUser.uid)setSearchErr('Это вы 🙂');
+      else setSearchRes(p);
+    }catch(e){setSearchErr('Ошибка поиска');}
+    setSearching(false);
+  }
+  async function openWithUser(prof){
+    const cid=await getOrCreateChat(authUser.uid,prof.uid);
+    setProfiles(p=>({...p,[prof.uid]:prof}));
+    setOpenChat({id:cid,otherUid:prof.uid});
+    setShowSearch(false);setSearchEmail('');setSearchRes(null);setSearchErr('');
+  }
+
+  return <div style={{flex:1,display:'flex',flexDirection:'column',paddingTop:ui.isPhone?18:14,overflow:'hidden'}}>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,flexShrink:0}}>
+      <div style={{fontSize:ui.isPhone?30:26,fontWeight:700,letterSpacing:-.5,color:T.text}}>Чаты</div>
+      <GlassBtn onClick={()=>setShowSearch(true)}><IcUserPl c="currentColor" s={15} sw={2}/> Найти</GlassBtn>
+    </div>
+    <div style={{flex:1,overflowY:'auto'}}>
+      {chats.length===0&&<div style={{textAlign:'center',color:T.sub,marginTop:70}}>
+        <div style={{fontSize:48,marginBottom:14}}>💬</div>
+        <div style={{fontSize:15,marginBottom:6}}>Нет активных чатов</div>
+        <div style={{fontSize:13}}>Нажмите «Найти», чтобы написать другу</div>
+      </div>}
+      {chats.map(chat=>{
+        const otherUid=chat.participants.find(u=>u!==authUser.uid);
+        const prof=profiles[otherUid]||{name:'...',email:''};
+        return <div key={chat.id} onClick={()=>setOpenChat({id:chat.id,otherUid})}
+          style={{display:'flex',alignItems:'center',gap:14,padding:'12px 0',borderBottom:'0.5px solid '+T.sep,cursor:'pointer',WebkitTapHighlightColor:'transparent'}}>
+          <div style={{width:50,height:50,borderRadius:25,background:'linear-gradient(135deg,#5856d6,#007aff)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:700,color:'#fff',flexShrink:0}}>
+            {(prof.name||prof.email||'?')[0].toUpperCase()}
+          </div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:600,fontSize:15,color:T.text,marginBottom:2}}>{prof.name||prof.email}</div>
+            <div style={{fontSize:13,color:T.sub,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{chat.lastMsg||'Чат открыт'}</div>
+          </div>
+          <IcChevR c={T.muted} s={18} sw={1.8}/>
+        </div>;
+      })}
+    </div>
+    {showSearch&&<Sheet onClose={()=>{setShowSearch(false);setSearchEmail('');setSearchRes(null);setSearchErr('');}}>
+      <SectionLabel>Найти пользователя</SectionLabel>
+      <input type="email" value={searchEmail} onChange={e=>setSearchEmail(e.target.value)}
+        onKeyDown={e=>e.key==='Enter'&&doSearch()}
+        placeholder="Email друга" style={{...ia,marginBottom:10,fontSize:16}}/>
+      <button onClick={doSearch} disabled={searching||!searchEmail.trim()}
+        style={{width:'100%',padding:13,borderRadius:14,border:'none',background:T.pill,color:T.pillTxt,fontSize:16,fontWeight:600,cursor:'pointer',marginBottom:12,opacity:!searchEmail.trim()?0.5:1}}>
+        {searching?'Поиск...':'Найти'}
+      </button>
+      {searchErr&&<div style={{color:'#ff453a',fontSize:13,marginBottom:10,padding:'8px 12px',background:'rgba(255,69,58,.08)',borderRadius:10}}>{searchErr}</div>}
+      {searchRes&&<div onClick={()=>openWithUser(searchRes)}
+        style={{display:'flex',alignItems:'center',gap:12,padding:14,borderRadius:14,background:T.ctrl,cursor:'pointer',WebkitTapHighlightColor:'transparent'}}>
+        <div style={{width:44,height:44,borderRadius:22,background:'linear-gradient(135deg,#5856d6,#007aff)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:700,color:'#fff'}}>
+          {(searchRes.name||searchRes.email)[0].toUpperCase()}
+        </div>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:600,color:T.text,fontSize:15}}>{searchRes.name}</div>
+          <div style={{fontSize:13,color:T.sub}}>{searchRes.email}</div>
+        </div>
+        <div style={{color:T.pill,fontSize:14,fontWeight:700}}>Открыть →</div>
+      </div>}
+    </Sheet>}
+  </div>;
+}
+
+/* ===== SHARED HABIT CARD ===== */
+function SharedHabitCard({sh,myUid,dark}){
+  const{T}=useT();
+  const P=dark?PD:PL;
+  const p=P[Math.min(Math.max(sh.habit?.colorIdx||0,0),P.length-1)];
+  const d30=mkDates(30);
+  const tracking=sh.tracking||{};
+  const otherUid=(sh.participants||[]).find(u=>u!==myUid);
+
+  function getVal(uid,date){
+    const key='d_'+date.replace(/[\s,]/g,'_');
+    return !!(tracking[uid]&&tracking[uid][key]);
+  }
+  async function toggle(date){
+    const val=getVal(myUid,date);
+    await toggleSharedHabitDay(sh.id,myUid,date,!val);
+  }
+
+  return <div style={{borderRadius:20,padding:'14px 16px',background:p.bg,marginBottom:10,boxShadow:'0 4px 20px rgba(0,0,0,.07)'}}>
+    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+      <div style={{flex:1,fontSize:16,fontWeight:700,color:p.text,lineHeight:1.3}}>{sh.habit?.text}</div>
+      <span style={{fontSize:10,color:p.sub,background:'rgba(0,0,0,.08)',borderRadius:6,padding:'2px 8px',fontWeight:700,flexShrink:0}}>совместная</span>
+    </div>
+    {(sh.participants||[]).filter(Boolean).map((uid,ri)=>{
+      const isMe=uid===myUid;
+      return <div key={uid} style={{marginBottom:ri===0?6:0}}>
+        <div style={{fontSize:10,color:p.sub,marginBottom:3,fontWeight:700,letterSpacing:.5}}>{isMe?'Я':'Друг'}</div>
+        <div style={{display:'flex',gap:3,overflowX:'auto'}}>
+          {d30.map(date=>{
+            const done=getVal(uid,date);
+            const isToday=date===tod();
+            return <div key={date} onClick={isMe?()=>toggle(date):undefined}
+              style={{width:20,height:20,borderRadius:6,flexShrink:0,
+                background:done?p.dot:'rgba(0,0,0,.1)',
+                border:isToday?('2px solid '+p.dot):'2px solid transparent',
+                cursor:isMe?'pointer':'default',transition:'background .2s'
+              }}/>;
+          })}
+        </div>
+      </div>;
+    })}
+  </div>;
+}
+
 /* ===== ROOT ===== */
 const TABS=[
   {id:0,l:'Дела',Icon:({c,s})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 9l2.5 2.5L15 8"/><line x1="8" y1="14.5" x2="16" y2="14.5" opacity=".4"/></svg>},
   {id:1,l:'Привычки',Icon:({c,s})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2C9 2 6 5 6 9c0 5 6 11 6 11s6-6 6-11c0-4-3-7-6-7z"/><circle cx="12" cy="9" r="2" fill={c} stroke="none" opacity=".7"/></svg>},
   {id:2,l:'Повторение',Icon:({c,s})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.5"/><circle cx="12" cy="12" r="3" fill={c} stroke="none" opacity=".5"/></svg>},
+  {id:3,l:'Чаты',Icon:({c,s})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>},
 ];
 
 /* ===== AUTH & ACCOUNT COMPONENTS ===== */
@@ -1835,6 +2282,8 @@ function App(){
   const[needsReenter,setNeedsReenter]=useState(false);
   const[syncStatus,setSyncStatus]=useState('idle'); // 'idle'|'syncing'|'synced'|'error'
   const[lastSync,setLastSync]=useState(null);
+  // Social state
+  const[sharedHabits,setSharedHabits]=useState([]);
   const fromCloudRef=useRef(false); // true = не пушить обратно после получения с облака
   const syncRef=useRef(null);
   const syncActive=useRef(false); // true во время пуша (блокирует эхо в листенере)
@@ -1913,6 +2362,18 @@ function App(){
         }catch(e){}
       }
     );
+    return unsub;
+  },[authUser?.uid]);
+
+  // ===== Listener for shared habits =====
+  useEffect(()=>{
+    if(!authUser||!_db)return;
+    const unsub=_db.collection('sharedHabits')
+      .where('participants','array-contains',authUser.uid)
+      .where('status','==','active')
+      .onSnapshot(snap=>{
+        setSharedHabits(snap.docs.map(d=>({...d.data(),id:d.id})));
+      },e=>console.warn('sharedHabits listener:',e));
     return unsub;
   },[authUser?.uid]);
 
@@ -1997,6 +2458,8 @@ function App(){
   async function onAuth(pass){
     const user=_auth.currentUser;if(!user)return;
     try{
+      await user.getIdToken(true);
+      await ensureProfile(user.uid,user.email);
       const ex=await fsGet(user.uid);
       const salt=ex?.salt||xh(crypto.getRandomValues(new Uint8Array(16)));
       saltRef.current=salt;
@@ -2075,9 +2538,8 @@ function App(){
       {needsReenter&&authUser&&<ReenterSheet email={authUser.email} onConfirm={onReenter} onLogout={onLogout} onClose={()=>setNeedsReenter(false)}/>}
       <div style={{flex:1,overflow:'hidden',maxWidth:ui.isPhone?'100%':600,width:'100%',margin:'0 auto',padding:'0 '+ui.sidePad+'px',position:'relative'}}>
         {/* All tabs always mounted вЂ” state preserved. Slide between them via CSS. */}
-        {[0,1,2].map(tid=>{
+        {[0,1,2,3].map(tid=>{
           const active=tid===tab;
-          // inactive tabs sit to the left or right depending on their id vs active tab
           const offset=active?0:(tid<tab?-100:100);
           return <div key={tid} style={{
             position:'absolute',inset:0,padding:'0 '+ui.sidePad+'px',
@@ -2088,8 +2550,10 @@ function App(){
             transition:'transform .34s cubic-bezier(.4,0,.2,1), opacity .28s cubic-bezier(.4,0,.2,1)',
           }}>
             {tid===0&&<DailyTab tasks={tasks} setTasks={setTasks} lists={lists} setLists={setLists} convertToHabit={convertToHabit} dark={dark} onToggleDark={()=>setDark(d=>!d)}/>}
-            {tid===1&&<HabitsTab habits={habits} setHabits={setHabits} dark={dark} onToggleDark={()=>setDark(d=>!d)}/>}
+            {tid===1&&<HabitsTab habits={habits} setHabits={setHabits} dark={dark} onToggleDark={()=>setDark(d=>!d)} sharedHabits={sharedHabits} myUid={authUser?.uid}/>}
             {tid===2&&<SRTab dark={dark} onToggleDark={()=>setDark(d=>!d)}/>}
+            {tid===3&&<ChatTab authUser={authUser} tasks={tasks} habits={habits}
+              onAddTask={t=>setTasks(ts=>[{...t,id:Date.now(),done:false},...ts])}/>}
           </div>;
         })}
       </div>
