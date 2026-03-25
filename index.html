@@ -173,9 +173,11 @@ async function searchProfileByEmail(email){
 }
 async function getOrCreateChat(uid1,uid2){
   const cid=chatDocId(uid1,uid2);
-  const ref=_db.collection('chats').doc(cid);
-  const d=await ref.get();
-  if(!d.exists)await ref.set({participants:[uid1,uid2],lastMsg:'',lastTs:firebase.firestore.FieldValue.serverTimestamp()});
+  // merge:true → create if not exists, update if exists (не перезаписывает lastMsg)
+  await _db.collection('chats').doc(cid).set(
+    {participants:[uid1,uid2],lastTs:firebase.firestore.FieldValue.serverTimestamp()},
+    {merge:true}
+  );
   return cid;
 }
 async function sendChatMsg(cid,from,type,content){
