@@ -14,6 +14,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;overscroll-behavior:none;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
@@ -40,6 +43,110 @@ input,textarea,select,button{-webkit-user-select:text!important;user-select:text
 <div id="root"></div>
 <script type="text/babel">
 const{useState,useEffect,useRef,createContext,useContext}=React;
+
+/* ===== FIREBASE =====
+ * Настройка:
+ * 1. Создайте проект на console.firebase.google.com
+ * 2. Проект → Добавить приложение → Веб → скопируйте конфиг ниже
+ * 3. Authentication → Sign-in method → Email/Password → Включить
+ * 4. Firestore Database → Создать → Production mode
+ * 5. Firestore → Rules → вставьте правила:
+ *
+ * rules_version = '2';
+ * service cloud.firestore {
+ *   match /databases/{database}/documents {
+ *     match /u/{uid} {
+ *       allow read, write: if request.auth != null && request.auth.uid == uid;
+ *     }
+ *   }
+ * }
+ */
+
+
+
+
+
+const FIREBASE_CFG = {
+  apiKey: "AIzaSyCuNWaKwcKx0djiLobHLCyY687fTgsFUU0",
+  authDomain: "daily-deck-0.firebaseapp.com",
+  projectId: "daily-deck-0",
+  storageBucket: "daily-deck-0.firebasestorage.app",
+  messagingSenderId: "375023023383",
+  appId: "1:375023023383:web:057efa85582b2eb29df352"
+};
+
+let _auth = null, _db = null, _authingNow = false;
+const FB_READY = !!(FIREBASE_CFG.apiKey);
+if (FB_READY) {
+  try {
+    firebase.initializeApp(FIREBASE_CFG);
+    _auth = firebase.auth();
+    _db = firebase.firestore();
+  } catch(e) { console.warn('Firebase init:', e); }
+}
+
+/* ===== CRYPTO: AES-256-GCM + PBKDF2 ===== */
+// hx: hex string -> Uint8Array
+const hx = h => new Uint8Array(h.match(/.{2}/g).map(b => parseInt(b, 16)));
+// xh: Uint8Array -> hex string
+const xh = a => Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
+// ub: Uint8Array/ArrayBuffer -> base64 string
+const ub = a => { const u = a instanceof Uint8Array ? a : new Uint8Array(a); return btoa(String.fromCharCode(...u)); };
+// bu: base64 string -> Uint8Array
+const bu = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+
+async function pbkdf2Key(pass, saltU8) {
+  const mat = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: saltU8, iterations: 310000, hash: 'SHA-256' },
+    mat, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']
+  );
+}
+async function encAll(key, data) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(data))));
+  const out = new Uint8Array(12 + ct.length); out.set(iv); out.set(ct, 12);
+  return ub(out);
+}
+async function decAll(key, b64) {
+  const p = bu(b64);
+  return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: p.slice(0, 12) }, key, p.slice(12))));
+}
+
+// Ключ хранится в памяти + sessionStorage (очищается при закрытии вкладки)
+const _SK = '_ddk_k';
+let _memKey = null;
+async function getKey() {
+  if (_memKey) return _memKey;
+  const s = sessionStorage.getItem(_SK); if (!s) return null;
+  _memKey = await crypto.subtle.importKey('raw', bu(s), { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+  return _memKey;
+}
+async function storeKey(k) {
+  _memKey = k;
+  sessionStorage.setItem(_SK, ub(new Uint8Array(await crypto.subtle.exportKey('raw', k))));
+}
+function clearKey() { _memKey = null; sessionStorage.removeItem(_SK); }
+
+/* ===== CLOUD SYNC ===== */
+async function fsGet(uid) {
+  const d = await _db.collection('u').doc(uid).get();
+  return d.exists ? d.data() : null;
+}
+async function cloudPush(uid, tasks, lists, habits, key, salt) {
+  await _db.collection('u').doc(uid).set({
+    payload: await encAll(key, { tasks, lists, habits, v: 1 }),
+    salt,
+    ts: firebase.firestore.FieldValue.serverTimestamp()
+  });
+}
+// Merge по id: данные из b перезаписывают a при конфликте
+function mergeArr(a, b) {
+  const m = new Map();
+  (a || []).forEach(x => m.set(x.id, x));
+  (b || []).forEach(x => m.set(x.id, x));
+  return [...m.values()];
+}
 
 /* ===== THEME ===== */
 const BL='blur(24px) saturate(180%)';
@@ -1597,6 +1704,121 @@ const TABS=[
   {id:2,l:'Повторение',Icon:({c,s})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.5"/><circle cx="12" cy="12" r="3" fill={c} stroke="none" opacity=".5"/></svg>},
 ];
 
+/* ===== AUTH & ACCOUNT COMPONENTS ===== */
+const IcUser = Ic('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>');
+
+function AuthSheet({ onClose, onAuth }) {
+  const { T, ui } = useT();
+  const [mode, setMode] = useState('login');
+  const [email, setEmail] = useState('');
+  const [pass, setPass] = useState('');
+  const [pass2, setPass2] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const ia = IaStyle(T, ui);
+  const ERR = {
+    'auth/email-already-in-use': 'Email уже используется',
+    'auth/user-not-found': 'Пользователь не найден',
+    'auth/wrong-password': 'Неверный пароль',
+    'auth/invalid-email': 'Неверный email',
+    'auth/weak-password': 'Минимум 6 символов',
+    'auth/invalid-credential': 'Неверный email или пароль',
+    'auth/too-many-requests': 'Слишком много попыток, подождите'
+  };
+  async function submit() {
+    if (!email.trim() || !pass) { setErr('Заполните все поля'); return; }
+    if (mode === 'register' && pass !== pass2) { setErr('Пароли не совпадают'); return; }
+    if (pass.length < 8) { setErr('Пароль: минимум 8 символов'); return; }
+    setBusy(true); setErr('');
+    _authingNow = true;
+    try {
+      if (mode === 'register') await _auth.createUserWithEmailAndPassword(email.trim(), pass);
+      else await _auth.signInWithEmailAndPassword(email.trim(), pass);
+      await onAuth(pass);
+      onClose();
+    } catch(e) {
+      _authingNow = false;
+      // Если Firebase auth успешен но onAuth упал — выходим
+      if (_auth?.currentUser) { try { await _auth.signOut(); } catch(_) {} }
+      setErr(ERR[e.code] || e.message || 'Ошибка');
+    } finally { setBusy(false); }
+  }
+  return <Sheet onClose={onClose}>
+    <SectionLabel>Аккаунт</SectionLabel>
+    <div style={{ display: 'flex', gap: 6, marginBottom: 18 }}>
+      <GlassBtn onClick={() => { setMode('login'); setErr(''); }} style={mode === 'login' ? { background: T.pill, color: T.pillTxt } : {}}>Войти</GlassBtn>
+      <GlassBtn onClick={() => { setMode('register'); setErr(''); }} style={mode === 'register' ? { background: T.pill, color: T.pillTxt } : {}}>Регистрация</GlassBtn>
+    </div>
+    <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" style={{ ...ia, marginBottom: 10, fontSize: 16 }} autoComplete="email" />
+    <input type="password" value={pass} onChange={e => setPass(e.target.value)} onKeyDown={e => mode === 'login' && e.key === 'Enter' && submit()} placeholder="Пароль (мин. 8 символов)" style={{ ...ia, marginBottom: 10, fontSize: 16 }} autoComplete={mode === 'register' ? 'new-password' : 'current-password'} />
+    {mode === 'register' && <input type="password" value={pass2} onChange={e => setPass2(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()} placeholder="Повторите пароль" style={{ ...ia, marginBottom: 10, fontSize: 16 }} autoComplete="new-password" />}
+    {err && <div style={{ color: '#ff453a', fontSize: 13, marginBottom: 10, padding: '8px 12px', background: 'rgba(255,69,58,.08)', borderRadius: 10 }}>{err}</div>}
+    <button onClick={submit} disabled={busy} style={{ width: '100%', padding: 13, borderRadius: 14, border: 'none', background: busy ? T.ctrl : T.pill, color: busy ? T.ctrlTxt : T.pillTxt, fontSize: 16, fontWeight: 600, cursor: busy ? 'default' : 'pointer', marginBottom: 16 }}>
+      {busy ? 'Загрузка...' : (mode === 'register' ? 'Создать аккаунт' : 'Войти')}
+    </button>
+    <div style={{ fontSize: 12, color: T.muted, lineHeight: 1.65, padding: '10px 12px', background: T.ctrl, borderRadius: 12 }}>
+      🔒 Данные шифруются на вашем устройстве (AES-256-GCM) ключом, производным от вашего пароля (PBKDF2, 310 000 итераций). Сервер хранит только зашифрованный блок — без возможности прочитать содержимое. Забытый пароль = потеря доступа к данным.
+    </div>
+  </Sheet>;
+}
+
+function AccountSheet({ user, syncStatus, lastSync, onLogout, onClose }) {
+  const { T } = useT();
+  const [busy, setBusy] = useState(false);
+  const dot = syncStatus === 'syncing' ? '#ff9500' : syncStatus === 'synced' ? '#30d158' : syncStatus === 'error' ? '#ff453a' : '#8e8e93';
+  const label = syncStatus === 'syncing' ? 'Синхронизация...'
+    : syncStatus === 'synced' && lastSync ? 'Синхр. ' + new Date(lastSync).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })
+    : syncStatus === 'error' ? 'Ошибка синхронизации'
+    : 'Ожидание изменений';
+  return <Sheet onClose={onClose}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
+      <div style={{ width: 50, height: 50, borderRadius: '50%', background: 'linear-gradient(135deg,#5856d6,#007aff)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <span style={{ fontSize: 19, fontWeight: 700, color: '#fff' }}>{(user.email || '?')[0].toUpperCase()}</span>
+      </div>
+      <div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{user.email}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
+          <div style={{ width: 7, height: 7, borderRadius: '50%', background: dot }} />
+          <span style={{ fontSize: 12, color: T.sub }}>{label}</span>
+        </div>
+      </div>
+    </div>
+    <div style={{ background: T.ctrl, borderRadius: 14, padding: '12px 14px', marginBottom: 18, fontSize: 12, color: T.muted, lineHeight: 1.65 }}>
+      🔒 Данные зашифрованы на устройстве (AES-256-GCM, PBKDF2 310 000 итераций). Даже мы не можем прочитать ваши данные. Забытый пароль = невозможность расшифровки.
+    </div>
+    <button onClick={async () => { setBusy(true); try { await onLogout(); } finally { setBusy(false); onClose(); } }} style={{ width: '100%', padding: 13, borderRadius: 14, border: '0.5px solid rgba(255,69,58,.25)', background: 'rgba(255,69,58,.08)', color: '#ff453a', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+      {busy ? '...' : 'Выйти из аккаунта'}
+    </button>
+  </Sheet>;
+}
+
+function ReenterSheet({ email, onConfirm, onLogout, onClose }) {
+  const { T, ui } = useT();
+  const [pass, setPass] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const ia = IaStyle(T, ui);
+  async function go() {
+    if (!pass) { setErr('Введите пароль'); return; }
+    setBusy(true); setErr('');
+    try { await onConfirm(pass); onClose(); }
+    catch(e) { setErr(e.message || 'Неверный пароль'); }
+    finally { setBusy(false); }
+  }
+  return <Sheet onClose={() => {}}>
+    <SectionLabel>Расшифровка данных</SectionLabel>
+    <div style={{ fontSize: 14, color: T.sub, marginBottom: 14, lineHeight: 1.5 }}>
+      Введите пароль от аккаунта <b style={{ color: T.text }}>{email}</b>, чтобы расшифровать данные на этом устройстве.
+    </div>
+    <input type="password" value={pass} onChange={e => setPass(e.target.value)} onKeyDown={e => e.key === 'Enter' && go()} placeholder="Пароль" style={{ ...ia, marginBottom: 10, fontSize: 16 }} autoFocus />
+    {err && <div style={{ color: '#ff453a', fontSize: 13, marginBottom: 10 }}>{err}</div>}
+    <button onClick={go} disabled={busy} style={{ width: '100%', padding: 13, borderRadius: 14, border: 'none', background: T.pill, color: T.pillTxt, fontSize: 16, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>
+      {busy ? '...' : 'Продолжить'}
+    </button>
+    <GlassBtn onClick={async () => { await onLogout(); onClose(); }} danger style={{ width: '100%', padding: 12, justifyContent: 'center' }}>Выйти из аккаунта</GlassBtn>
+  </Sheet>;
+}
+
 function App(){
   const[tab,setTab]=useState(0);
   const[onboarding,setOnboarding]=useState(()=>!localStorage.getItem('onb2'));
@@ -1605,6 +1827,18 @@ function App(){
   const[tasks,setTasks]=useState(()=>ld('tk9',[]));
   const[lists,setLists]=useState(()=>ld('tl9',[]));
   const[habits,setHabits]=useState(()=>{const raw=ld('hb9',[]);const d90=mkDates(90);return raw.map(h=>ensDays(h,d90));});
+
+  // Auth & Sync state
+  const[authUser,setAuthUser]=useState(null);
+  const[showAuth,setShowAuth]=useState(false);
+  const[showAccount,setShowAccount]=useState(false);
+  const[needsReenter,setNeedsReenter]=useState(false);
+  const[syncStatus,setSyncStatus]=useState('idle'); // 'idle'|'syncing'|'synced'|'error'
+  const[lastSync,setLastSync]=useState(null);
+  const fromCloudRef=useRef(false); // true = не пушить обратно после получения с облака
+  const syncRef=useRef(null);
+  const syncActive=useRef(false); // true во время пуша (блокирует эхо в листенере)
+  const saltRef=useRef(null);
 
   useEffect(()=>{sv('tk9',tasks);},[tasks]);
   useEffect(()=>{sv('tl9',lists);},[lists]);
@@ -1615,6 +1849,72 @@ function App(){
     window.addEventListener('resize',onResize);
     return()=>window.removeEventListener('resize',onResize);
   },[]);
+
+  // ===== Firebase auth observer =====
+  useEffect(()=>{
+    if(!FB_READY||!_auth)return;
+    return _auth.onAuthStateChanged(async fbUser=>{
+      if(fbUser){
+        setAuthUser(fbUser);
+        if(_authingNow)return; // свежий логин — onAuth() сам настроит ключ
+        const k=await getKey();
+        if(k){
+          try{
+            const d=await fsGet(fbUser.uid);
+            if(d?.salt)saltRef.current=d.salt;
+            if(d?.payload){const cloud=await decAll(k,d.payload);applyCloud(cloud);}
+          }catch(e){console.warn('Cloud load:',e);}
+        } else {
+          setNeedsReenter(true);
+        }
+      } else {
+        setAuthUser(null);setNeedsReenter(false);
+      }
+    });
+  },[]);
+
+  // ===== Дебаунс-синк (3 сек после последнего изменения) =====
+  useEffect(()=>{
+    if(fromCloudRef.current){fromCloudRef.current=false;return;}
+    const cu=_auth?.currentUser;
+    if(!cu||!saltRef.current)return;
+    clearTimeout(syncRef.current);
+    syncRef.current=setTimeout(async()=>{
+      const k=await getKey();
+      if(!k||!saltRef.current||!_auth?.currentUser)return;
+      syncActive.current=true;
+      setSyncStatus('syncing');
+      try{
+        await cloudPush(_auth.currentUser.uid,tasks,lists,habits,k,saltRef.current);
+        setSyncStatus('synced');setLastSync(Date.now());
+      }catch(e){
+        setSyncStatus('error');console.warn('Sync error:',e);
+      }finally{
+        setTimeout(()=>{syncActive.current=false;},2000);
+      }
+    },3000);
+    return()=>clearTimeout(syncRef.current);
+  },[tasks,lists,habits]);
+
+  // ===== Реалтайм-листенер Firestore =====
+  useEffect(()=>{
+    if(!authUser||!FB_READY)return;
+    const unsub=_db.collection('u').doc(authUser.uid).onSnapshot(
+      {includeMetadataChanges:true},
+      async snap=>{
+        // Игнорируем: незакоммиченные локальные правки, наши собственные пуши
+        if(!snap.exists||snap.metadata.hasPendingWrites||syncActive.current)return;
+        const k=await getKey();if(!k)return;
+        try{
+          const d=snap.data();
+          if(!d?.payload)return;
+          const cloud=await decAll(k,d.payload);
+          applyCloud(cloud);
+        }catch(e){}
+      }
+    );
+    return unsub;
+  },[authUser?.uid]);
 
   // в”Ђв”Ђ Midnight reset в”Ђв”Ђ
   // Logic:
@@ -1684,6 +1984,75 @@ function App(){
     };
   },[]);
 
+  // Применяет данные из облака (merge: облако побеждает при конфликте по id)
+  function applyCloud(cloud){
+    const d90=mkDates(90);
+    fromCloudRef.current=true;
+    setTasks(cur=>mergeArr(cur,cloud.tasks||[]));
+    setLists(cur=>mergeArr(cur,cloud.lists||[]));
+    setHabits(cur=>mergeArr(cur,(cloud.habits||[]).map(h=>ensDays(h,d90))));
+  }
+
+  // Вызывается после успешного Firebase auth: деривирует ключ, синкает данные
+  async function onAuth(pass){
+    const user=_auth.currentUser;if(!user)return;
+    try{
+      const ex=await fsGet(user.uid);
+      const salt=ex?.salt||xh(crypto.getRandomValues(new Uint8Array(16)));
+      saltRef.current=salt;
+      const k=await pbkdf2Key(pass,hx(salt));
+      await storeKey(k);
+      if(ex?.payload){
+        // Есть данные в облаке — декриптуем и мержим
+        const cloud=await decAll(k,ex.payload);
+        applyCloud(cloud);
+        // После оседания стейта в localStorage — пушим смерженный результат
+        setTimeout(async()=>{
+          const k2=await getKey();
+          if(!k2||!saltRef.current||!_auth?.currentUser)return;
+          const t=ld('tk9',[]),l=ld('tl9',[]),h=ld('hb9',[]);
+          try{
+            await cloudPush(_auth.currentUser.uid,t,l,h,k2,saltRef.current);
+            setSyncStatus('synced');setLastSync(Date.now());
+          }catch(e){setSyncStatus('error');}
+        },800);
+      } else {
+        // Новый аккаунт — пушим локальные данные
+        setSyncStatus('syncing');
+        try{
+          await cloudPush(user.uid,tasks,lists,habits,k,salt);
+          setSyncStatus('synced');setLastSync(Date.now());
+        }catch(e){setSyncStatus('error');}
+      }
+    }finally{_authingNow=false;}
+  }
+
+  // Повторный ввод пароля (после обновления страницы когда сессия есть но ключ утерян)
+  async function onReenter(pass){
+    const user=_auth?.currentUser;if(!user)throw new Error('Нет сессии');
+    const ex=await fsGet(user.uid);
+    if(!ex?.salt||!ex?.payload)throw new Error('Нет данных в облаке');
+    const k=await pbkdf2Key(pass,hx(ex.salt));
+    let cloud;
+    try{cloud=await decAll(k,ex.payload);}catch(e){throw new Error('Неверный пароль');}
+    await storeKey(k);
+    saltRef.current=ex.salt;
+    setNeedsReenter(false);
+    applyCloud(cloud);
+  }
+
+  // Выход: очищаем ключ, данные в памяти и localStorage
+  async function onLogout(){
+    clearTimeout(syncRef.current);
+    await _auth.signOut();
+    clearKey();
+    saltRef.current=null;
+    setSyncStatus('idle');setLastSync(null);
+    fromCloudRef.current=true; // блокируем пуш от очистки стейта
+    setAuthUser(null);setNeedsReenter(false);
+    setTasks([]);setLists([]);setHabits([]);
+  }
+
   function go(id){
     if(id===tab)return;
     setTab(id);
@@ -1701,6 +2070,9 @@ function App(){
   return <Cx.Provider value={{dark,T,ui}}>
     <div style={{height:'100dvh',display:'flex',flexDirection:'column',background:T.bg,overflow:'hidden',transition:'background .3s',color:T.text}}>
       {onboarding&&<Onboarding onDone={()=>{localStorage.setItem('onb2','1');setOnboarding(false);}}/>}
+      {showAuth&&<AuthSheet onClose={()=>setShowAuth(false)} onAuth={onAuth}/>}
+      {showAccount&&authUser&&<AccountSheet user={authUser} syncStatus={syncStatus} lastSync={lastSync} onLogout={onLogout} onClose={()=>setShowAccount(false)}/>}
+      {needsReenter&&authUser&&<ReenterSheet email={authUser.email} onConfirm={onReenter} onLogout={onLogout} onClose={()=>setNeedsReenter(false)}/>}
       <div style={{flex:1,overflow:'hidden',maxWidth:ui.isPhone?'100%':600,width:'100%',margin:'0 auto',padding:'0 '+ui.sidePad+'px',position:'relative'}}>
         {/* All tabs always mounted вЂ” state preserved. Slide between them via CSS. */}
         {[0,1,2].map(tid=>{
@@ -1723,7 +2095,7 @@ function App(){
       </div>
       {/* Tab bar - 3 items only */}
       <div style={{flexShrink:0,background:T.tb,backdropFilter:BL,WebkitBackdropFilter:BL,borderTop:'0.5px solid '+T.sep}}>
-        <div style={{maxWidth:ui.isPhone?'100%':600,margin:'0 auto',display:'flex',alignItems:'center',padding:ui.isPhone?'10px 8px 12px':'8px 12px 10px'}}>
+        <div style={{maxWidth:ui.isPhone?'100%':600,margin:'0 auto',display:'flex',alignItems:'center',gap:8,padding:ui.isPhone?'10px 8px 12px':'8px 12px 10px'}}>
           <div style={{flex:1,display:'flex',gap:3,background:dark?'rgba(255,255,255,.06)':'rgba(0,0,0,.04)',borderRadius:16,padding:3}}>
             {TABS.map(t=>{
               const act=tab===t.id;
@@ -1733,6 +2105,13 @@ function App(){
               </button>;
             })}
           </div>
+          {FB_READY&&<button onClick={()=>authUser?setShowAccount(true):setShowAuth(true)} style={{width:ui.isPhone?40:34,height:ui.isPhone?40:34,borderRadius:ui.isPhone?12:10,border:'0.5px solid '+T.sep,background:authUser?'linear-gradient(135deg,#5856d6,#007aff)':T.ctrl,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',backdropFilter:BL,WebkitBackdropFilter:BL,flexShrink:0,position:'relative'}}>
+            {authUser
+              ?<span style={{fontSize:ui.isPhone?15:13,fontWeight:700,color:'#fff'}}>{(authUser.email||'?')[0].toUpperCase()}</span>
+              :<IcUser c={T.ctrlTxt} s={ui.isPhone?18:16} sw={1.8}/>
+            }
+            {authUser&&syncStatus!=='idle'&&<div style={{position:'absolute',top:4,right:4,width:6,height:6,borderRadius:'50%',background:syncStatus==='syncing'?'#ff9500':syncStatus==='synced'?'#30d158':'#ff453a',border:'1px solid '+T.tb,transition:'background .3s'}}/>}
+          </button>}
         </div>
       </div>
     </div>
