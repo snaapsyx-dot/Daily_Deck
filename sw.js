@@ -1,5 +1,5 @@
-// Service Worker — кешируем всё для офлайна
-const CACHE = 'cards-v1';
+// Service Worker — кешируем только GET-запросы с http/https
+const CACHE = 'cards-v2';
 const ASSETS = ['./', './manifest.json'];
 
 self.addEventListener('install', e => {
@@ -17,7 +17,19 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Network first для API, cache first для всего остального
+  const url = e.request.url;
+  // Пропускаем POST, chrome-extension, Firebase API, WebSocket
+  if (
+    e.request.method !== 'GET' ||
+    !url.startsWith('http') ||
+    url.includes('firestore.googleapis.com') ||
+    url.includes('firebase') ||
+    url.includes('identitytoolkit') ||
+    url.includes('googleapis.com')
+  ) {
+    return; // не перехватываем — браузер обрабатывает напрямую
+  }
+
   e.respondWith(
     fetch(e.request)
       .then(res => {
