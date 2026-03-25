@@ -202,6 +202,9 @@ async function createSharedHabitDoc(uid1,uid2,habit){
 async function activateSharedHabit(shId){
   try{await _db.collection('sharedHabits').doc(shId).update({status:'active'});}catch(e){}
 }
+async function leaveSharedHabit(shId){
+  try{await _db.collection('sharedHabits').doc(shId).update({status:'left'});}catch(e){}
+}
 async function toggleSharedHabitDay(shId,uid,dateStr,val){
   const key='d_'+dateStr.replace(/[\s,]/g,'_');
   try{await _db.collection('sharedHabits').doc(shId).update({[`tracking.${uid}.${key}`]:val});}catch(e){}
@@ -1333,12 +1336,18 @@ function SwipeableCard({children,onSwipeRight,onSwipeLeft,onSwipeUp,style={}}){
   </div>;
 }
 
-function HabitCardsList({habits,setHabits,tday,d30,toggleDay,setDayState,setDayValue,streak,setEditH}){
-  const{T,dark}=useT();
+function HabitCardsList({habits,setHabits,tday,d30,toggleDay,setDayState,setDayValue,streak,setEditH,sharedHabits=[],myUid,dark,onEditShared}){
+  const{T}=useT();
   const P=dark?PD:PL;
   const pof=n=>P[Math.min(Math.max(n||0,0),P.length-1)];
 
+  const allItems=[
+    ...habits.map(h=>({_t:'r',_id:h.id,d:h})),
+    ...sharedHabits.map(sh=>({_t:'s',_id:sh.id,d:sh}))
+  ];
+
   function reorder(from,to){
+    if(from>=habits.length||to>=habits.length)return;
     setHabits(hs=>{
       const visibleIds=habits.map(h=>h.id);
       const visible=hs.filter(h=>visibleIds.includes(h.id));
@@ -1348,17 +1357,20 @@ function HabitCardsList({habits,setHabits,tday,d30,toggleDay,setDayState,setDayV
       return [...visible,...rest];
     });
   }
-  function moveToEnd(h){setHabits(hs=>{const r=hs.filter(x=>x.id!==h.id);return[...r,h];});}
 
-  if(habits.length===0)return <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:T.muted,fontSize:16}}>Нет привычек</div>;
+  if(allItems.length===0)return <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:T.muted,fontSize:16}}>Нет привычек</div>;
 
   return <div className='no-select' style={{flex:1,overflowY:'auto',paddingTop:8,paddingBottom:8}}>
-    <SortableList items={habits} keyFn={h=>h.id} onReorder={reorder} renderItem={(h,idx,isDrag,handleProps)=>{
+    <SortableList items={allItems} keyFn={item=>item._id} onReorder={reorder} renderItem={(item,idx,isDrag,handleProps)=>{
+      if(item._t==='s'){
+        return <SharedHabitCard sh={item.d} myUid={myUid} dark={dark} handleProps={handleProps} onEdit={()=>onEditShared&&onEditShared(item.d)}/>;
+      }
+      const h=item.d;
       const p=pof(h.colorIdx);const str=streak(h);const td=h.days?.find(d=>d.date===tday)?.state||null;
       return <div style={{background:p.bg,borderRadius:28,boxShadow:isDrag?'0 20px 50px rgba(0,0,0,.25)':'0 4px 20px rgba(0,0,0,.07)'}}>
         <div style={{padding:'18px 20px'}}>
           <div style={{display:'flex',alignItems:'flex-start',gap:8,marginBottom:12}}>
-            <div {...handleProps} style={{...(handleProps?.style),width:18,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:6,opacity:.25}}>
+            <div {...(handleProps||{})} style={{...((handleProps||{}).style),width:18,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:6,opacity:.25}}>
               <svg width="10" height="16" viewBox="0 0 10 16" fill={p.text}>
                 <circle cx="3" cy="2" r="1.5"/><circle cx="3" cy="8" r="1.5"/><circle cx="3" cy="14" r="1.5"/>
                 <circle cx="8" cy="2" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="14" r="1.5"/>
@@ -1399,6 +1411,7 @@ function HabitsTab({habits,setHabits,dark,onToggleDark,sharedHabits=[],myUid}){
   const[mode,setMode]=useState('stack');
   const[calH,setCalH]=useState(null);
   const[editH,setEditH]=useState(null);
+  const[editSH,setEditSH]=useState(null);
 
   const visibleHabits=habits.filter(h=>isScheduledForDate(h,tday));
   function add(){if(!addText.trim())return;setHabits(hs=>[ensDays({id:Date.now(),text:addText.trim(),notes:'',colorIdx:hs.length%6,weekdays,days:[],totalReps:0},d90),...hs]);setAddText('');setWeekdays([]);setAdding(false);}
@@ -1440,9 +1453,23 @@ function HabitsTab({habits,setHabits,dark,onToggleDark,sharedHabits=[],myUid}){
     return st!=='done'&&st!=='failed';
   });
   const donT=visibleHabits.filter(h=> h.days?.find(d=>d.date===tday)?.state==='done');
+  // Shared habits for stack: those not yet done today
+  const sharedUndT=(myUid?sharedHabits:[]).filter(sh=>{
+    const key='d_'+tday.replace(/[\s,]/g,'_');
+    return !(sh.tracking?.[myUid]?.[key]);
+  }).map(sh=>({...sh.habit,id:sh.id,_sharedId:sh.id,_isShared:true}));
+  const allUndT=[...undT,...sharedUndT];
+  const allDonT=[...donT,...(myUid?sharedHabits:[]).filter(sh=>{
+    const key='d_'+tday.replace(/[\s,]/g,'_');
+    return !!(sh.tracking?.[myUid]?.[key]);
+  })];
 
-  function swR(h){setDayState(h.id,tday,'done');} // stack right = toggle done
+  function swR(h){
+    if(h._isShared){toggleSharedHabitDay(h._sharedId,myUid,tday,true);}
+    else setDayState(h.id,tday,'done');
+  }
   function swL(h){
+    if(h._isShared){return;} // shared: just skip (no "failed")
     // Mark as failed AND remove from undone stack in one atomic update
     setHabits(hs=>hs.map(hh=>{
       if(hh.id!==h.id)return hh;
@@ -1459,6 +1486,12 @@ function HabitsTab({habits,setHabits,dark,onToggleDark,sharedHabits=[],myUid}){
 
   return <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
     {calH&&<CalModal habit={calH} onClose={()=>setCalH(null)} onToggle={toggleDay}/>}
+    {editSH&&<Sheet onClose={()=>setEditSH(null)}>
+      <SectionLabel>Совместная привычка</SectionLabel>
+      <div style={{background:T.ctrl,borderRadius:14,padding:'12px 16px',marginBottom:16,fontSize:16,fontWeight:600,color:T.text}}>{editSH.habit?.text}</div>
+      {editSH.habit?.weekdays?.length>0&&<div style={{fontSize:13,color:T.sub,marginBottom:16}}>{editSH.habit.weekdays.map(d=>WD[d]).join(' · ')}</div>}
+      <GlassBtn danger onClick={async()=>{await leaveSharedHabit(editSH.id);setEditSH(null);}}>Покинуть привычку</GlassBtn>
+    </Sheet>}
     {editH&&<EditHabitSheet habit={editH} showCal={!!editH._showCal} onSave={(t,n,c,w,days)=>saveH(editH.id,t,n,c,w,days)} onDelete={()=>del(editH.id)} onCalendar={()=>{setCalH(editH);setEditH(null);}} onClose={()=>setEditH(null)}/>}
     {/* Header */}
     <div style={{flexShrink:0,padding:ui.isPhone?'20px 0 14px':'18px 0 12px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
@@ -1486,15 +1519,15 @@ function HabitsTab({habits,setHabits,dark,onToggleDark,sharedHabits=[],myUid}){
     {mode==='stack'&&<div style={{flex:1,position:'relative',overflow:'hidden'}}>
       {visibleHabits.length===0
         ?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:T.muted}}><IcLeaf c={T.muted} s={48}/><div style={{fontSize:16,fontWeight:500,marginTop:12}}>Нет привычек</div></div>
-        :undT.length===0
-        ?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:10}}><IcCheck c={T.muted} s={48}/><div style={{fontSize:18,fontWeight:700,color:T.text}}>Всё отмечено!</div><div style={{fontSize:13,color:T.muted}}>{donT.length} ✓  {visibleHabits.filter(h=>h.days?.find(d=>d.date===tday)?.state==='failed').length} ✗</div></div>
+        :allUndT.length===0
+        ?<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',gap:10}}><IcCheck c={T.muted} s={48}/><div style={{fontSize:18,fontWeight:700,color:T.text}}>Всё отмечено!</div><div style={{fontSize:13,color:T.muted}}>{allDonT.length} ✓  {visibleHabits.filter(h=>h.days?.find(d=>d.date===tday)?.state==='failed').length} ✗</div></div>
         :<>
           <div style={{position:'absolute',top:0,left:0,right:0,zIndex:10,display:'flex',justifyContent:'space-between',alignItems:'center',padding:'0 8px',pointerEvents:'none'}}>
             <span style={{fontSize:12,fontWeight:600,color:T.muted}}>← Позже</span>
             <span style={{fontSize:12,fontWeight:600,color:T.muted}}>Готово →</span>
           </div>
           <div style={{position:'absolute',top:22,left:0,right:0,bottom:0}}>
-            <TinderStack items={undT} onRight={swR} onLeft={swL} onUp={swU} onTap={h=>setEditH({...h,_showCal:true})}  renderCard={(h)=>{
+            <TinderStack items={allUndT} onRight={swR} onLeft={swL} onUp={swU} onTap={h=>h._isShared?setEditSH(sharedHabits.find(s=>s.id===h.id)):setEditH({...h,_showCal:true})} renderCard={(h)=>{
               const p=pof(h.colorIdx);const str=streak(h);
               return <div style={{padding:'24px 24px',height:'100%',display:'flex',flexDirection:'column',justifyContent:'space-between'}}>
                 <div style={{flex:1,minHeight:0,display:'flex',flexDirection:'column'}}>
@@ -1510,23 +1543,17 @@ function HabitsTab({habits,setHabits,dark,onToggleDark,sharedHabits=[],myUid}){
                   </div>}
                 </div>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0,marginTop:12}}>
-                  <div style={{display:'flex',gap:5}}>{undT.slice(0,7).map((_,i)=><div key={i} style={{width:i===0?20:7,height:6,borderRadius:3,background:i===0?p.dot:(p.dot+'40')}}/>)}</div>
+                  <div style={{display:'flex',gap:5}}>{allUndT.slice(0,7).map((_,i)=><div key={i} style={{width:i===0?20:7,height:6,borderRadius:3,background:i===0?p.dot:(p.dot+'40')}}/>)}</div>
                   <div style={{fontSize:11,color:p.sub,opacity:.45,display:'flex',alignItems:'center',gap:3}}><IcPencil c={p.sub} s={11}/>изменить</div>
                 </div>
               </div>;
             }}/>
           </div>
-          {donT.length>0&&<div style={{position:'absolute',bottom:8,right:8,background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:12,padding:'5px 11px',border:'0.5px solid '+T.sep}}><span style={{fontSize:12,fontWeight:600,color:T.sub}}>✓ {donT.length}</span></div>}
+          {allDonT.length>0&&<div style={{position:'absolute',bottom:8,right:8,background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:12,padding:'5px 11px',border:'0.5px solid '+T.sep}}><span style={{fontSize:12,fontWeight:600,color:T.sub}}>✓ {allDonT.length}</span></div>}
         </>}
     </div>}
-    {/* Cards mode — long press to drag reorder */}
-    {mode==='cards'&&<>
-      {sharedHabits.length>0&&<div style={{flexShrink:0,paddingTop:8}}>
-        {sharedHabits.map(sh=><SharedHabitCard key={sh.id} sh={sh} myUid={myUid} dark={dark}/>)}
-        {visibleHabits.length>0&&<div style={{height:1,background:'rgba(120,120,128,.15)',marginBottom:4}}/>}
-      </div>}
-      <HabitCardsList habits={visibleHabits} setHabits={setHabits} tday={tday} d30={d30} toggleDay={toggleDay} setDayState={setDayState} setDayValue={setDayValue} streak={streak} setEditH={setEditH}/>
-    </>}
+    {/* Cards mode */}
+    {mode==='cards'&&<HabitCardsList habits={visibleHabits} setHabits={setHabits} tday={tday} d30={d30} toggleDay={toggleDay} setDayState={setDayState} setDayValue={setDayValue} streak={streak} setEditH={setEditH} sharedHabits={sharedHabits} myUid={myUid} dark={dark} onEditShared={sh=>setEditSH(sh)}/>}
   </div>;
 }
 
@@ -2121,7 +2148,7 @@ function ChatTab({authUser,tasks,habits,onAddTask}){
 }
 
 /* ===== SHARED HABIT CARD ===== */
-function SharedHabitCard({sh,myUid,dark}){
+function SharedHabitCard({sh,myUid,dark,handleProps,onEdit}){
   const{T}=useT();
   const P=dark?PD:PL;
   const p=P[Math.min(Math.max(sh.habit?.colorIdx||0,0),P.length-1)];
@@ -2137,6 +2164,7 @@ function SharedHabitCard({sh,myUid,dark}){
   async function toggle(date){
     await toggleSharedHabitDay(sh.id,myUid,date,!getVal(myUid,date));
   }
+  const tdDone=getVal(myUid,tday);
 
   function MiniStrip({uid,isMe,label}){
     const ref=useRef(null);
@@ -2168,11 +2196,10 @@ function SharedHabitCard({sh,myUid,dark}){
     </div>;
   }
 
-  return <div style={{background:p.bg,borderRadius:28,boxShadow:'0 4px 20px rgba(0,0,0,.07)',marginBottom:16}}>
+  return <div style={{background:p.bg,borderRadius:28,boxShadow:'0 4px 20px rgba(0,0,0,.07)'}}>
     <div style={{padding:'18px 20px'}}>
-      {/* Header — как обычная карта привычки */}
       <div style={{display:'flex',alignItems:'flex-start',gap:8,marginBottom:12}}>
-        <div style={{width:18,flexShrink:0,marginTop:6,opacity:.2}}>
+        <div {...(handleProps||{})} style={{...((handleProps||{}).style),width:18,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:6,opacity:.25}}>
           <svg width="10" height="16" viewBox="0 0 10 16" fill={p.text}>
             <circle cx="3" cy="2" r="1.5"/><circle cx="3" cy="8" r="1.5"/><circle cx="3" cy="14" r="1.5"/>
             <circle cx="8" cy="2" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="14" r="1.5"/>
@@ -2182,9 +2209,20 @@ function SharedHabitCard({sh,myUid,dark}){
           <div style={{fontSize:19,fontWeight:700,color:p.text,lineHeight:1.3,letterSpacing:-.3}}>{sh.habit?.text}</div>
           {sh.habit?.weekdays?.length>0&&<div style={{fontSize:12,color:p.sub,marginTop:5,fontWeight:600}}>{sh.habit.weekdays.map(d=>WD[d]).join(' · ')}</div>}
         </div>
-        <span style={{fontSize:10,color:p.sub,background:'rgba(0,0,0,.1)',borderRadius:7,padding:'3px 8px',fontWeight:700,flexShrink:0,marginTop:2}}>совместная</span>
+        <button onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onEdit&&onEdit();}} style={{width:32,height:32,borderRadius:10,background:'rgba(0,0,0,.08)',border:'none',cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',WebkitTapHighlightColor:'transparent',touchAction:'manipulation'}}>
+          <IcPencil c={p.sub} s={14}/>
+        </button>
+        <div onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();toggle(tday);}}
+          style={{width:42,height:42,borderRadius:13,flexShrink:0,cursor:'pointer',
+            border:'2px solid '+(tdDone?'transparent':p.dot),
+            background:tdDone?p.dot:'transparent',
+            display:'flex',alignItems:'center',justifyContent:'center',
+            transition:'all .2s',WebkitTapHighlightColor:'transparent',touchAction:'manipulation',
+            boxShadow:tdDone?'0 4px 14px '+p.dot+'50':'none'
+          }}>
+          {tdDone&&<IcCheck c="#fff" s={18} sw={2.5}/>}
+        </div>
       </div>
-      {/* Два DayStrip */}
       <MiniStrip uid={myUid} isMe={true} label="Я"/>
       <div style={{height:10}}/>
       {otherUid&&<MiniStrip uid={otherUid} isMe={false} label="Друг"/>}
