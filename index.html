@@ -233,6 +233,21 @@ async function toggleSharedStackTask(ssId,taskId,done){
     doneTaskIds:done?firebase.firestore.FieldValue.arrayUnion(taskId):firebase.firestore.FieldValue.arrayRemove(taskId)
   });}catch(e){}
 }
+async function addSharedStackTask(ssId,text){
+  const task={id:String(Date.now()),text:text.trim(),notes:'',colorIdx:0};
+  try{await _db.collection('sharedStacks').doc(ssId).update({
+    tasks:firebase.firestore.FieldValue.arrayUnion(task)
+  });}catch(e){}
+}
+async function removeSharedStackTask(ssId,taskId){
+  try{
+    const doc=await _db.collection('sharedStacks').doc(ssId).get();
+    if(!doc.exists)return;
+    const tasks=(doc.data().tasks||[]).filter(t=>String(t.id)!==String(taskId));
+    const doneTaskIds=(doc.data().doneTaskIds||[]).filter(id=>String(id)!==String(taskId));
+    await _db.collection('sharedStacks').doc(ssId).update({tasks,doneTaskIds});
+  }catch(e){}
+}
 async function markChatRead(chatId,uid){
   try{await _db.collection('chats').doc(chatId).update({[`lastReadBy.${uid}`]:firebase.firestore.FieldValue.serverTimestamp()});}catch(e){}
 }
@@ -979,7 +994,11 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
     },600);
   }
   function saveEdit(id,text,notes,recur,ci,weekdays){setTasks(ts=>ts.map(t=>t.id===id?{...t,text,notes,recur,colorIdx:ci,weekdays}:t));setEdit(null);}
-  function del(id){setTasks(ts=>ts.filter(t=>t.id!==id));setEdit(null);}
+  function del(id){
+    const t=activeTasks.find(x=>String(x.id)===String(id));
+    if(t?._isSharedTask){removeSharedStackTask(t._stackId,id);}
+    else{setTasks(ts=>ts.filter(t=>t.id!==id));setEdit(null);}
+  }
   function toggle(id){
     if(openSharedStack){
       const t=activeTasks.find(t=>t.id===id);
@@ -1045,7 +1064,11 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
     </div>
 
     {/* Add form */}
-    {adding&&<div style={{flexShrink:0,background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:20,padding:18,marginBottom:14,border:'0.5px solid '+T.sep,animation:'scaleIn .2s ease'}}>
+    {adding&&openSharedStack&&<div style={{flexShrink:0,background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:20,padding:18,marginBottom:14,border:'0.5px solid '+T.sep,animation:'scaleIn .2s ease'}}>
+      <input autoFocus value={addText} onChange={e=>setAddText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&(addText.trim()&&(addSharedStackTask(openSharedStackId,addText),setAddText(''),setAdding(false)))} placeholder="Новая карточка в колоде..." style={{width:'100%',border:'none',outline:'none',fontSize:17,background:'transparent',marginBottom:14,color:T.text}}/>
+      <button onClick={()=>{if(addText.trim()){addSharedStackTask(openSharedStackId,addText);setAddText('');setAdding(false);}}} style={{width:'100%',padding:12,borderRadius:13,border:'none',background:T.pill,color:T.pillTxt,fontSize:15,fontWeight:600,cursor:'pointer'}}>Добавить в колоду</button>
+    </div>}
+    {adding&&!openSharedStack&&<div style={{flexShrink:0,background:T.glass,backdropFilter:BL,WebkitBackdropFilter:BL,borderRadius:20,padding:18,marginBottom:14,border:'0.5px solid '+T.sep,animation:'scaleIn .2s ease'}}>
       <input value={addText} onChange={e=>setAddText(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} placeholder="Что нужно сделать?" style={{width:'100%',border:'none',outline:'none',fontSize:17,background:'transparent',marginBottom:14,color:T.text}}/>
       <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:14}}>{RECURS.map(r=><GlassBtn key={r.v} onClick={()=>setRecur(r.v)} style={recur===r.v?{background:T.pill,color:T.pillTxt}:{}}>{r.l}</GlassBtn>)}</div>
       <div style={{marginBottom:14}}><WeekdayPicker value={weekdays} onChange={setWeekdays}/></div>
@@ -1246,7 +1269,7 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
   </div>;
 }
 
-/* ===== SORTABLE LIST вЂ” proper iOS-style drag reorder ===== */
+/* ===== SORTABLE LIST — handle-based drag, native pointer events ===== */
 function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
   const[src,setSrc]=useState(null);
   const[tgt,setTgt]=useState(null);
@@ -1254,9 +1277,8 @@ function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
   const tgtRef=useRef(null);
   const refs=useRef([]);
   const meas=useRef({tops:[],heights:[]});
-  const startYRef=useRef(0);
-  const activeRef=useRef(false);
-  const pointerIdRef=useRef(null);
+  const itemsLenRef=useRef(items.length);
+  useEffect(()=>{itemsLenRef.current=items.length;},[items.length]);
 
   function measure(){
     const tops=[],heights=[];
@@ -1267,15 +1289,8 @@ function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
     meas.current={tops,heights};
   }
 
-  function applyDragTransform(d){
-    const el=refs.current[srcRef.current];
-    if(el)el.style.transform='translateY('+d+'px) scale(1.04)';
-  }
-
-  function applyShifts(newTgt){
+  function applyShifts(s,newTgt){
     const{heights}=meas.current;
-    const s=srcRef.current;
-    if(s===null)return;
     const h=(heights[s]||80)+gap;
     refs.current.forEach((el,i)=>{
       if(!el||i===s)return;
@@ -1286,20 +1301,23 @@ function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
     });
   }
 
-  // Drag starts immediately when grip handle is pressed (no long-press timer)
   function onHandleDown(idx,e){
     if(e.button!=null&&e.button!==0)return;
     e.stopPropagation();
     e.preventDefault();
     const el=refs.current[idx];
     if(!el)return;
-    // Capture pointer so events follow finger even outside element
+
+    // Prevent scroll on the dragged item and all siblings during drag
+    el.style.touchAction='none';
     try{el.setPointerCapture(e.pointerId);}catch(_){}
+
     measure();
-    activeRef.current=true;
-    srcRef.current=idx;tgtRef.current=idx;
-    startYRef.current=e.clientY;
-    pointerIdRef.current=e.pointerId??null;
+    srcRef.current=idx;
+    tgtRef.current=idx;
+    const startY=e.clientY;
+    const pId=e.pointerId;
+
     refs.current.forEach((r,i)=>{
       if(r)r.style.transition=i===idx?'box-shadow .15s':'transform .22s cubic-bezier(.2,.8,.4,1)';
     });
@@ -1308,48 +1326,52 @@ function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
     el.style.zIndex='100';
     setSrc(idx);setTgt(idx);
     if(navigator.vibrate)navigator.vibrate(30);
-  }
 
-  function onItemMove(idx,e){
-    if(!activeRef.current||srcRef.current!==idx)return;
-    if(pointerIdRef.current!==null&&e.pointerId!==pointerIdRef.current)return;
-    e.preventDefault();e.stopPropagation();
-    const d=e.clientY-startYRef.current;
-    applyDragTransform(d);
-    const{tops,heights}=meas.current;
-    const s=srcRef.current;
-    const srcCenter=tops[s]+heights[s]/2+d;
-    let newTgt=s;
-    for(let i=0;i<items.length;i++){
-      if(i===s)continue;
-      const mid=tops[i]+heights[i]/2;
-      if(i<s&&srcCenter<mid){newTgt=i;break;}
-      if(i>s&&srcCenter>mid)newTgt=i;
-    }
-    if(newTgt!==tgtRef.current){tgtRef.current=newTgt;setTgt(newTgt);applyShifts(newTgt);}
-  }
-
-  function onItemEnd(e){
-    if(!activeRef.current)return;
-    const s=srcRef.current,t=tgtRef.current;
-    if(s!==null&&t!==null&&t!==s)onReorder(s,t);
-    activeRef.current=false;
-    pointerIdRef.current=null;
-    refs.current.forEach(el=>{
-      if(el){
-        el.style.transition='transform .25s cubic-bezier(.2,.8,.4,1), box-shadow .2s';
-        el.style.transform='';el.style.boxShadow='';el.style.zIndex='';
+    function moveHandler(me){
+      if(me.pointerId!==pId)return;
+      me.preventDefault();
+      const s=srcRef.current;if(s===null)return;
+      const d=me.clientY-startY;
+      if(el)el.style.transform='translateY('+d+'px) scale(1.04)';
+      const{tops,heights}=meas.current;
+      const srcCenter=tops[s]+heights[s]/2+d;
+      let newTgt=s;
+      const n=itemsLenRef.current;
+      for(let i=0;i<n;i++){
+        if(i===s)continue;
+        const mid=tops[i]+heights[i]/2;
+        if(i<s&&srcCenter<mid){newTgt=i;break;}
+        if(i>s&&srcCenter>mid)newTgt=i;
       }
-    });
-    srcRef.current=null;tgtRef.current=null;
-    setSrc(null);setTgt(null);
-    setTimeout(()=>{refs.current.forEach(el=>{if(el)el.style.transition='';});},280);
+      if(newTgt!==tgtRef.current){tgtRef.current=newTgt;setTgt(newTgt);applyShifts(s,newTgt);}
+    }
+
+    function endHandler(){
+      el.removeEventListener('pointermove',moveHandler);
+      el.removeEventListener('pointerup',endHandler);
+      el.removeEventListener('pointercancel',endHandler);
+      const s=srcRef.current,t=tgtRef.current;
+      if(s!==null&&t!==null&&t!==s)onReorder(s,t);
+      srcRef.current=null;tgtRef.current=null;
+      refs.current.forEach(r=>{
+        if(r){
+          r.style.transition='transform .25s cubic-bezier(.2,.8,.4,1), box-shadow .2s';
+          r.style.transform='';r.style.boxShadow='';r.style.zIndex='';
+          r.style.touchAction='';
+        }
+      });
+      setSrc(null);setTgt(null);
+      setTimeout(()=>{refs.current.forEach(r=>{if(r)r.style.transition='';});},280);
+    }
+
+    el.addEventListener('pointermove',moveHandler,{passive:false});
+    el.addEventListener('pointerup',endHandler);
+    el.addEventListener('pointercancel',endHandler);
   }
 
   return <div style={{position:'relative',overflow:'visible'}}>
     {items.map((item,idx)=>{
       const isDrag=idx===src;
-      // handleProps are spread onto the drag grip icon by each caller
       const handleProps={
         onPointerDown:(e)=>onHandleDown(idx,e),
         style:{touchAction:'none',cursor:'grab',userSelect:'none',WebkitUserSelect:'none'},
@@ -1357,9 +1379,6 @@ function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
       return <div
         key={keyFn(item,idx)}
         ref={el=>refs.current[idx]=el}
-        onPointerMove={e=>onItemMove(idx,e)}
-        onPointerUp={onItemEnd}
-        onPointerCancel={onItemEnd}
         onContextMenu={e=>e.preventDefault()}
         style={{marginBottom:gap,touchAction:'pan-y',position:'relative',borderRadius:28,willChange:'transform'}}
       >{renderItem(item,idx,isDrag,handleProps)}</div>;
@@ -2027,7 +2046,7 @@ function ChatMessage({msg,isOwn,chatId,myUid,onAddTask,otherLastRead=0}){
 }
 
 /* ===== CHAT VIEW ===== */
-function ChatView({authUser,chatId,otherProfile,onBack,tasks,habits,onAddTask}){
+function ChatView({authUser,chatId,otherProfile,otherUid,onBack,tasks,habits,lists=[],onAddTask}){
   const{T,ui,dark}=useT();
   const[messages,setMessages]=useState([]);
   const[text,setText]=useState('');
@@ -2077,16 +2096,16 @@ function ChatView({authUser,chatId,otherProfile,onBack,tasks,habits,onAddTask}){
     setShareMode(null);setSelTasks([]);
   }
   async function sendHabit(habit){
-    const otherUid=otherProfile?.uid;if(!otherUid)return;
-    const shId=await createSharedHabitDoc(authUser.uid,otherUid,habit);
+    const toUid=otherUid||otherProfile?.uid;if(!toUid)return;
+    const shId=await createSharedHabitDoc(authUser.uid,toUid,habit);
     await sendChatMsg(chatId,authUser.uid,'habit',{habit:{text:habit.text,colorIdx:habit.colorIdx||0,weekdays:habit.weekdays||[]},sharedHabitId:shId});
     setShareMode(null);
   }
-  async function sendSharedStack(){
-    if(!selTasks.length||!otherProfile?.uid)return;
-    const sel=tasks.filter(t=>selTasks.includes(t.id));
-    const name=sel.length===1?sel[0].text:`Колода (${sel.length} задач)`;
-    const ssId=await createSharedStackDoc(authUser.uid,otherProfile.uid,name,sel);
+  async function sendSharedStack(list,listTasks){
+    const toUid=otherUid||otherProfile?.uid;
+    if(!listTasks||!listTasks.length||!toUid)return;
+    const name=list?list.name:`Дела (${listTasks.length})`;
+    const ssId=await createSharedStackDoc(authUser.uid,toUid,name,listTasks);
     await sendChatMsg(chatId,authUser.uid,'sharedstack',{name,sharedStackId:ssId});
     setShareMode(null);setSelTasks([]);
   }
@@ -2150,23 +2169,34 @@ function ChatView({authUser,chatId,otherProfile,onBack,tasks,habits,onAddTask}){
       </div>
     </div>}
     {shareMode==='sharedstack'&&<div style={{flexShrink:0,borderTop:'0.5px solid '+T.sep,padding:'14px 0 8px'}}>
-      <div style={{fontSize:11,fontWeight:700,letterSpacing:1.4,color:T.muted,textTransform:'uppercase',marginBottom:10}}>Общая колода — выбери задачи</div>
-      <div style={{maxHeight:180,overflowY:'auto',marginBottom:10}}>
-        {tasks.filter(t=>!t.done).map(t=>{
-          const sel=selTasks.includes(t.id);
-          const p=(dark?PD:PL)[t.colorIdx||0];
-          return <div key={t.id} onClick={()=>setSelTasks(s=>sel?s.filter(i=>i!==t.id):[...s,t.id])} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 4px',borderBottom:'0.5px solid '+T.sep,cursor:'pointer'}}>
-            <div style={{width:20,height:20,borderRadius:6,border:'2px solid '+(sel?p.dot:'rgba(128,128,128,.3)'),background:sel?p.dot:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              {sel&&<IcCheck c="#fff" s={10} sw={2.5}/>}
+      <div style={{fontSize:11,fontWeight:700,letterSpacing:1.4,color:T.muted,textTransform:'uppercase',marginBottom:10}}>Выбери колоду для отправки</div>
+      <div style={{maxHeight:200,overflowY:'auto',marginBottom:10}}>
+        {lists.map(l=>{
+          const listTasks=tasks.filter(t=>t.listId===l.id&&!t.done);
+          if(!listTasks.length)return null;
+          return <div key={l.id} onClick={()=>sendSharedStack(l,listTasks)}
+            style={{display:'flex',alignItems:'center',gap:10,padding:'10px 4px',borderBottom:'0.5px solid '+T.sep,cursor:'pointer',WebkitTapHighlightColor:'transparent'}}>
+            <span style={{fontSize:18}}>📦</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:14,fontWeight:700,color:T.text}}>{l.name}</div>
+              <div style={{fontSize:12,color:T.muted}}>{listTasks.length} карточек</div>
             </div>
-            <span style={{fontSize:14,color:T.text,flex:1}}>{t.text}</span>
+            <IcChevR c={T.muted} s={16} sw={1.8}/>
           </div>;
         })}
+        {(()=>{const rt=tasks.filter(t=>!t.listId&&!t.done);return rt.length>0?<div onClick={()=>sendSharedStack(null,rt)}
+          style={{display:'flex',alignItems:'center',gap:10,padding:'10px 4px',borderBottom:'0.5px solid '+T.sep,cursor:'pointer',WebkitTapHighlightColor:'transparent'}}>
+          <span style={{fontSize:18}}>📋</span>
+          <div style={{flex:1}}>
+            <div style={{fontSize:14,fontWeight:700,color:T.text}}>Без колоды</div>
+            <div style={{fontSize:12,color:T.muted}}>{rt.length} карточек</div>
+          </div>
+          <IcChevR c={T.muted} s={16} sw={1.8}/>
+        </div>:null;})()}
+        {lists.every(l=>!tasks.filter(t=>t.listId===l.id&&!t.done).length)&&!tasks.filter(t=>!t.listId&&!t.done).length&&
+          <div style={{padding:'12px 4px',color:T.muted,fontSize:14}}>Нет активных задач в колодах</div>}
       </div>
-      <div style={{display:'flex',gap:8}}>
-        <GlassBtn onClick={()=>{setShareMode(null);setSelTasks([]);}}>Отмена</GlassBtn>
-        <button disabled={!selTasks.length||!otherProfile?.uid} onClick={sendSharedStack} style={{flex:1,padding:'9px 0',borderRadius:12,border:'none',background:'#ff9500',color:'#fff',fontSize:14,fontWeight:600,cursor:selTasks.length?'pointer':'not-allowed',opacity:selTasks.length?1:.5}}>📦 Отправить колоду ({selTasks.length})</button>
-      </div>
+      <GlassBtn onClick={()=>{setShareMode(null);setSelTasks([]);}}>Отмена</GlassBtn>
     </div>}
     {/* Input */}
     <div style={{paddingTop:8,flexShrink:0,display:'flex',gap:8,alignItems:'center'}}>
@@ -2194,7 +2224,7 @@ function ChatView({authUser,chatId,otherProfile,onBack,tasks,habits,onAddTask}){
 }
 
 /* ===== CHAT TAB ===== */
-function ChatTab({authUser,tasks,habits,onAddTask,onUnreadChange}){
+function ChatTab({authUser,tasks,habits,lists=[],onAddTask,onUnreadChange}){
   const{T,ui}=useT();
   const[chats,setChats]=useState([]);
   const[profiles,setProfiles]=useState({});
@@ -2228,7 +2258,7 @@ function ChatTab({authUser,tasks,habits,onAddTask,onUnreadChange}){
         const uids=[...new Set(data.flatMap(c=>c.participants).filter(u=>u!==authUser.uid))];
         const profs={};
         await Promise.all(uids.map(async uid=>{
-          try{const p=await _db.collection('profiles').doc(uid).get();if(p.exists)profs[uid]=p.data();}catch(e){}
+          try{const p=await _db.collection('profiles').doc(uid).get();if(p.exists)profs[uid]={...p.data(),uid};}catch(e){}
         }));
         setProfiles(p=>({...p,...profs}));
         // Compute unread count
@@ -2269,7 +2299,8 @@ function ChatTab({authUser,tasks,habits,onAddTask,onUnreadChange}){
   if(openChat){
     return <ChatView authUser={authUser} chatId={openChat.id}
       otherProfile={profiles[openChat.otherUid]||{name:'...',email:''}}
-      onBack={()=>setOpenChat(null)} tasks={tasks} habits={habits} onAddTask={onAddTask}/>;
+      otherUid={openChat.otherUid}
+      onBack={()=>setOpenChat(null)} tasks={tasks} habits={habits} lists={lists} onAddTask={onAddTask}/>;
   }
 
   async function doSearch(){
@@ -2849,7 +2880,7 @@ function App(){
             {tid===0&&<DailyTab tasks={tasks} setTasks={setTasks} lists={lists} setLists={setLists} convertToHabit={convertToHabit} dark={dark} onToggleDark={()=>setDark(d=>!d)} sharedStacks={sharedStacks} myUid={authUser?.uid}/>}
             {tid===1&&<HabitsTab habits={habits} setHabits={setHabits} dark={dark} onToggleDark={()=>setDark(d=>!d)} sharedHabits={sharedHabits} myUid={authUser?.uid}/>}
             {tid===2&&<SRTab dark={dark} onToggleDark={()=>setDark(d=>!d)}/>}
-            {tid===3&&<ChatTab authUser={authUser} tasks={tasks} habits={habits}
+            {tid===3&&<ChatTab authUser={authUser} tasks={tasks} habits={habits} lists={lists}
               onAddTask={t=>setTasks(ts=>[{...t,id:Date.now(),done:false},...ts])}
               onUnreadChange={setUnreadChats}/>}
           </div>;
