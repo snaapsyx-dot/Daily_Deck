@@ -137,20 +137,20 @@ async function decAll(key, b64) {
   return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: p.slice(0, 12) }, key, p.slice(12))));
 }
 
-// Ключ хранится в памяти + sessionStorage (очищается при закрытии вкладки)
+// Ключ хранится в памяти + localStorage (сохраняется между сессиями)
 const _SK = '_ddk_k';
 let _memKey = null;
 async function getKey() {
   if (_memKey) return _memKey;
-  const s = sessionStorage.getItem(_SK); if (!s) return null;
+  const s = localStorage.getItem(_SK); if (!s) return null;
   _memKey = await crypto.subtle.importKey('raw', bu(s), { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
   return _memKey;
 }
 async function storeKey(k) {
   _memKey = k;
-  sessionStorage.setItem(_SK, ub(new Uint8Array(await crypto.subtle.exportKey('raw', k))));
+  localStorage.setItem(_SK, ub(new Uint8Array(await crypto.subtle.exportKey('raw', k))));
 }
-function clearKey() { _memKey = null; sessionStorage.removeItem(_SK); }
+function clearKey() { _memKey = null; localStorage.removeItem(_SK); }
 
 /* ===== CLOUD SYNC ===== */
 async function fsGet(uid) {
@@ -922,16 +922,24 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
   const[editDeckColorIdx,setEditDeckColorIdx]=useState(0);
   const[openSharedStackId,setOpenSharedStackId]=useState(null);
   const[editSS,setEditSS]=useState(null);
+  // Optimistic updates for shared stacks (avoid flicker waiting for Firestore)
+  const[pendingDoneIds,setPendingDoneIds]=useState(()=>new Set());
+  const[skippedSharedIds,setSkippedSharedIds]=useState(()=>[]);
+  useEffect(()=>{setPendingDoneIds(new Set());setSkippedSharedIds([]);},[openSharedStackId]);
   const rl={none:null,daily:'↺ Каждый день',weekly:'↺ Каждую нед.',monthly:'↺ Каждый мес.',yearly:'↺ Каждый год'};
 
   const openSharedStack=openSharedStackId?sharedStacks.find(ss=>ss.id===openSharedStackId):null;
   const activeTasks=openSharedStack
-    ?(openSharedStack.tasks||[]).map(t=>({...t,done:(openSharedStack.doneTaskIds||[]).includes(t.id),_isSharedTask:true,_stackId:openSharedStackId}))
+    ?(openSharedStack.tasks||[]).map(t=>({...t,done:pendingDoneIds.has(t.id)||(openSharedStack.doneTaskIds||[]).includes(t.id),_isSharedTask:true,_stackId:openSharedStackId}))
     :openFolderId
       ?tasks.filter(t=>t.listId===openFolderId&&isScheduledForDate(t))
       :tasks.filter(t=>!t.listId&&isScheduledForDate(t));
   const undone=activeTasks.filter(t=>!t.done);
   const done=activeTasks.filter(t=>t.done);
+  // For shared stacks: show skipped items at the back of the swipe stack
+  const orderedUndone=openSharedStack
+    ?[...undone.filter(t=>!skippedSharedIds.includes(t.id)),...undone.filter(t=>skippedSharedIds.includes(t.id))]
+    :undone;
   const openFolder=lists.find(l=>l.id===openFolderId);
 
   function add(){
@@ -941,10 +949,20 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
     setTasks(ts=>[newTask,...ts]);setAddText('');setWeekdays([]);setAdding(false);
   }
   function swR(card){
-    if(card._isSharedTask)toggleSharedStackTask(card._stackId,String(card.id),true);
-    else setTasks(ts=>ts.map(t=>t.id===card.id?{...t,done:true,reps:t.reps+1,lastDone:new Date().toISOString()}:t));
+    if(card._isSharedTask){
+      setPendingDoneIds(s=>new Set([...s,card.id]));
+      toggleSharedStackTask(card._stackId,String(card.id),true);
+    }else{
+      setTasks(ts=>ts.map(t=>t.id===card.id?{...t,done:true,reps:t.reps+1,lastDone:new Date().toISOString()}:t));
+    }
   }
-  function swL(card){setTasks(ts=>{const o=ts.filter(t=>t.id!==card.id);return[...o.filter(t=>!t.done),card,...o.filter(t=>t.done)];});}
+  function swL(card){
+    if(card._isSharedTask){
+      setSkippedSharedIds(s=>[...s.filter(id=>id!==card.id),card.id]);
+    }else{
+      setTasks(ts=>{const o=ts.filter(t=>t.id!==card.id);return[...o.filter(t=>!t.done),card,...o.filter(t=>t.done)];});
+    }
+  }
   function shuffle(){
     if(sp||undone.length<2)return;
     setSp('fan');
@@ -965,7 +983,10 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
   function toggle(id){
     if(openSharedStack){
       const t=activeTasks.find(t=>t.id===id);
-      toggleSharedStackTask(openSharedStackId,id,!t?.done);
+      const newDone=!t?.done;
+      if(newDone){setPendingDoneIds(s=>new Set([...s,id]));}
+      else{setPendingDoneIds(s=>{const n=new Set(s);n.delete(id);return n;});}
+      toggleSharedStackTask(openSharedStackId,id,newDone);
     }else{
       setTasks(ts=>ts.map(t=>{if(t.id!==id)return t;const d=!t.done;return{...t,done:d,reps:d?t.reps+1:Math.max(0,t.reps-1),lastDone:d?new Date().toISOString():t.lastDone};}));
     }
@@ -1066,7 +1087,7 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
             <span style={{fontSize:12,fontWeight:600,color:T.muted}}>Готово →</span>
           </div>
           <div style={{position:'absolute',top:22,left:0,right:0,bottom:0}}>
-            <TinderStack items={undone} onRight={swR} onLeft={swL} onTap={setEdit} onUp={card=>setMoveCard(card)} shufflePhase={sp} renderCard={(card)=>{
+            <TinderStack items={orderedUndone} onRight={swR} onLeft={swL} onTap={setEdit} onUp={card=>setMoveCard(card)} shufflePhase={sp} renderCard={(card)=>{
               const p=pof(card.colorIdx);
               return <div style={{padding:'28px 24px',height:'100%',display:'flex',flexDirection:'column',justifyContent:'space-between'}}>
                 <div style={{flex:1,minHeight:0}}>
@@ -1122,7 +1143,7 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
           keyFn={l=>l.id}
           gap={8}
           onReorder={(from,to)=>setLists(ls=>{const a=[...ls];const item=a.splice(from,1)[0];a.splice(to,0,item);return a;})}
-          renderItem={(l,li,isDrag)=>{
+          renderItem={(l,li,isDrag,handleProps)=>{
             const lp=P[l.colorIdx||0];
             const lTasks=tasks.filter(t=>t.listId===l.id);
             const lUndone=lTasks.filter(t=>!t.done).length;
@@ -1130,7 +1151,7 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
               <div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 14px',background:lp.bg,borderRadius:18,cursor:'pointer',opacity:isDrag?.92:1}}
                 onClick={()=>setOpenFolderId(l.id)}>
                 {/* Drag grip */}
-                <div style={{opacity:.25,flexShrink:0}}>
+                <div onPointerDown={handleProps?.onPointerDown} style={{opacity:.45,flexShrink:0,touchAction:'none',cursor:'grab',userSelect:'none',WebkitUserSelect:'none'}}>
                   <svg width="8" height="14" viewBox="0 0 8 14" fill={lp.text}><circle cx="2" cy="2" r="1.3"/><circle cx="2" cy="7" r="1.3"/><circle cx="2" cy="12" r="1.3"/><circle cx="6.5" cy="2" r="1.3"/><circle cx="6.5" cy="7" r="1.3"/><circle cx="6.5" cy="12" r="1.3"/></svg>
                 </div>
                 <FolderIcon color={lp.dot} size={16}/>
@@ -1200,11 +1221,11 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
             return [...a].sort((a,b)=>(newIds.get(a.id)??999)-(newIds.get(b.id)??999));
           });
         }}
-        renderItem={(task,idx,isDrag)=>{
+        renderItem={(task,idx,isDrag,handleProps)=>{
           const p=pof(task.colorIdx);
           return <div style={{background:p.bg,borderRadius:22,padding:'14px 16px'}}>
             <div style={{display:'flex',gap:10,alignItems:'center'}}>
-              <div style={{width:16,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,opacity:.2}}>
+              <div onPointerDown={handleProps?.onPointerDown} style={{width:16,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,opacity:.45,touchAction:'none',cursor:'grab',userSelect:'none',WebkitUserSelect:'none'}}>
                 <svg width="8" height="14" viewBox="0 0 8 14" fill={p.text}><circle cx="2" cy="2" r="1.3"/><circle cx="2" cy="7" r="1.3"/><circle cx="2" cy="12" r="1.3"/><circle cx="6.5" cy="2" r="1.3"/><circle cx="6.5" cy="7" r="1.3"/><circle cx="6.5" cy="12" r="1.3"/></svg>
               </div>
               <div onPointerDown={e=>e.stopPropagation()} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();toggle(task.id);}} onClick={e=>{e.stopPropagation();toggle(task.id);}} style={{width:24,height:24,borderRadius:'50%',flexShrink:0,cursor:'pointer',border:'2px solid '+(task.done?'transparent':p.dot),background:task.done?p.dot:'transparent',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .2s',touchAction:'manipulation',WebkitTapHighlightColor:'transparent'}}>
@@ -1234,12 +1255,8 @@ function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
   const refs=useRef([]);
   const meas=useRef({tops:[],heights:[]});
   const startYRef=useRef(0);
-  const dyRef=useRef(0);
-  const timer=useRef(null);
   const activeRef=useRef(false);
   const pointerIdRef=useRef(null);
-
-  function getY(e){return e.clientY??e.touches?.[0]?.clientY??0;}
 
   function measure(){
     const tops=[],heights=[];
@@ -1251,7 +1268,6 @@ function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
   }
 
   function applyDragTransform(d){
-    // Move dragged element directly via DOM вЂ” no React re-render
     const el=refs.current[srcRef.current];
     if(el)el.style.transform='translateY('+d+'px) scale(1.04)';
   }
@@ -1270,36 +1286,35 @@ function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
     });
   }
 
-  function onPs(idx,e){
+  // Drag starts immediately when grip handle is pressed (no long-press timer)
+  function onHandleDown(idx,e){
     if(e.button!=null&&e.button!==0)return;
-    const y=getY(e);
-    startYRef.current=y;
+    e.stopPropagation();
+    e.preventDefault();
+    const el=refs.current[idx];
+    if(!el)return;
+    // Capture pointer so events follow finger even outside element
+    try{el.setPointerCapture(e.pointerId);}catch(_){}
+    measure();
+    activeRef.current=true;
+    srcRef.current=idx;tgtRef.current=idx;
+    startYRef.current=e.clientY;
     pointerIdRef.current=e.pointerId??null;
-    timer.current=setTimeout(()=>{
-      measure();
-      activeRef.current=true;
-      srcRef.current=idx;tgtRef.current=idx;
-      startYRef.current=y;dyRef.current=0;
-      // Reset all transforms first
-      refs.current.forEach((el,i)=>{if(el)el.style.transition=i===idx?'box-shadow .15s':'transform .22s cubic-bezier(.2,.8,.4,1)';});
-      const dragEl=refs.current[idx];
-      if(dragEl){dragEl.style.transform='translateY(0) scale(1.04)';dragEl.style.boxShadow='0 28px 64px rgba(0,0,0,.32)';dragEl.style.zIndex='100';}
-      setSrc(idx);setTgt(idx);
-      if(navigator.vibrate)navigator.vibrate(40);
-    },280);
+    refs.current.forEach((r,i)=>{
+      if(r)r.style.transition=i===idx?'box-shadow .15s':'transform .22s cubic-bezier(.2,.8,.4,1)';
+    });
+    el.style.transform='translateY(0) scale(1.04)';
+    el.style.boxShadow='0 28px 64px rgba(0,0,0,.32)';
+    el.style.zIndex='100';
+    setSrc(idx);setTgt(idx);
+    if(navigator.vibrate)navigator.vibrate(30);
   }
 
-  function onPm(e){
-    if(pointerIdRef.current!==null&&e.pointerId!=null&&e.pointerId!==pointerIdRef.current)return;
-    if(!activeRef.current){
-      if(Math.abs(getY(e)-startYRef.current)>8)clearTimeout(timer.current);
-      return;
-    }
-    if(!activeRef.current||srcRef.current===null)return;
+  function onItemMove(idx,e){
+    if(!activeRef.current||srcRef.current!==idx)return;
+    if(pointerIdRef.current!==null&&e.pointerId!==pointerIdRef.current)return;
     e.preventDefault();e.stopPropagation();
-    const y=getY(e);
-    const d=y-startYRef.current;
-    dyRef.current=d;
+    const d=e.clientY-startYRef.current;
     applyDragTransform(d);
     const{tops,heights}=meas.current;
     const s=srcRef.current;
@@ -1314,31 +1329,40 @@ function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
     if(newTgt!==tgtRef.current){tgtRef.current=newTgt;setTgt(newTgt);applyShifts(newTgt);}
   }
 
-  function onPe(e){
-    clearTimeout(timer.current);
+  function onItemEnd(e){
+    if(!activeRef.current)return;
     const s=srcRef.current,t=tgtRef.current;
-    if(activeRef.current&&s!==null&&t!==null&&t!==s)onReorder(s,t);
+    if(s!==null&&t!==null&&t!==s)onReorder(s,t);
     activeRef.current=false;
     pointerIdRef.current=null;
-    // Reset all DOM transforms
-    refs.current.forEach(el=>{if(el){el.style.transform='';el.style.boxShadow='';el.style.zIndex='';}});
+    refs.current.forEach(el=>{
+      if(el){
+        el.style.transition='transform .25s cubic-bezier(.2,.8,.4,1), box-shadow .2s';
+        el.style.transform='';el.style.boxShadow='';el.style.zIndex='';
+      }
+    });
     srcRef.current=null;tgtRef.current=null;
     setSrc(null);setTgt(null);
+    setTimeout(()=>{refs.current.forEach(el=>{if(el)el.style.transition='';});},280);
   }
 
   return <div style={{position:'relative',overflow:'visible'}}>
     {items.map((item,idx)=>{
       const isDrag=idx===src;
+      // handleProps are spread onto the drag grip icon by each caller
+      const handleProps={
+        onPointerDown:(e)=>onHandleDown(idx,e),
+        style:{touchAction:'none',cursor:'grab',userSelect:'none',WebkitUserSelect:'none'},
+      };
       return <div
         key={keyFn(item,idx)}
         ref={el=>refs.current[idx]=el}
-        onPointerDown={e=>onPs(idx,e)}
-        onPointerMove={onPm}
-        onPointerUp={onPe}
-        onPointerCancel={onPe}
+        onPointerMove={e=>onItemMove(idx,e)}
+        onPointerUp={onItemEnd}
+        onPointerCancel={onItemEnd}
         onContextMenu={e=>e.preventDefault()}
         style={{marginBottom:gap,touchAction:'pan-y',position:'relative',borderRadius:28,willChange:'transform'}}
-      >{renderItem(item,idx,isDrag)}</div>;
+      >{renderItem(item,idx,isDrag,handleProps)}</div>;
     })}
   </div>;
 }
@@ -1442,16 +1466,16 @@ function HabitCardsList({habits,setHabits,tday,d30,toggleDay,setDayState,setDayV
   if(allItems.length===0)return <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:T.muted,fontSize:16}}>Нет привычек</div>;
 
   return <div className='no-select' style={{flex:1,overflowY:'auto',paddingTop:8,paddingBottom:8}}>
-    <SortableList items={allItems} keyFn={item=>item._id} onReorder={reorder} renderItem={(item,idx,isDrag)=>{
+    <SortableList items={allItems} keyFn={item=>item._id} onReorder={reorder} renderItem={(item,idx,isDrag,handleProps)=>{
       if(item._t==='s'){
-        return <SharedHabitCard sh={item.d} myUid={myUid} dark={dark} onEdit={()=>onEditShared&&onEditShared(item.d)}/>;
+        return <SharedHabitCard sh={item.d} myUid={myUid} dark={dark} onEdit={()=>onEditShared&&onEditShared(item.d)} handleProps={handleProps}/>;
       }
       const h=item.d;
       const p=pof(h.colorIdx);const str=streak(h);const td=h.days?.find(d=>d.date===tday)?.state||null;
       return <div style={{background:p.bg,borderRadius:28,boxShadow:isDrag?'0 20px 50px rgba(0,0,0,.25)':'0 4px 20px rgba(0,0,0,.07)'}}>
         <div style={{padding:'18px 20px'}}>
           <div style={{display:'flex',alignItems:'flex-start',gap:8,marginBottom:12}}>
-            <div style={{width:18,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:6,opacity:.25,cursor:'grab'}}>
+            <div onPointerDown={handleProps?.onPointerDown} style={{width:18,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:6,opacity:.45,touchAction:'none',cursor:'grab',userSelect:'none',WebkitUserSelect:'none'}}>
               <svg width="10" height="16" viewBox="0 0 10 16" fill={p.text}>
                 <circle cx="3" cy="2" r="1.5"/><circle cx="3" cy="8" r="1.5"/><circle cx="3" cy="14" r="1.5"/>
                 <circle cx="8" cy="2" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="14" r="1.5"/>
@@ -1933,8 +1957,17 @@ function ChatMessage({msg,isOwn,chatId,myUid,onAddTask,otherLastRead=0}){
       <div style={{maxWidth:'78%',padding:'9px 14px',borderRadius:isOwn?'18px 18px 4px 18px':'18px 18px 18px 4px',background:isOwn?T.pill:'rgba(120,120,128,.15)',color:isOwn?T.pillTxt:T.text,fontSize:15,lineHeight:1.4,wordBreak:'break-word'}}>
         {msg.text}
       </div>
-      {isOwn&&<div style={{fontSize:11,color:isRead?'#007aff':'rgba(128,128,128,.45)',paddingRight:2}}>
-        {isRead?'✓✓':'✓'}
+      {isOwn&&<div style={{display:'flex',justifyContent:'flex-end',paddingRight:2,marginTop:1}}>
+        {isRead?(
+          <svg width="20" height="11" viewBox="0 0 20 11" fill="none">
+            <path d="M1 5.5L4.5 9L10 1.5" stroke="#007aff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M7 5.5L10.5 9L16 1.5" stroke="#007aff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        ):(
+          <svg width="13" height="11" viewBox="0 0 13 11" fill="none">
+            <path d="M1 5.5L4.5 9L12 1.5" stroke="rgba(128,128,128,.55)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        )}
       </div>}
     </div>;
   }
@@ -2161,7 +2194,7 @@ function ChatView({authUser,chatId,otherProfile,onBack,tasks,habits,onAddTask}){
 }
 
 /* ===== CHAT TAB ===== */
-function ChatTab({authUser,tasks,habits,onAddTask}){
+function ChatTab({authUser,tasks,habits,onAddTask,onUnreadChange}){
   const{T,ui}=useT();
   const[chats,setChats]=useState([]);
   const[profiles,setProfiles]=useState({});
@@ -2172,6 +2205,17 @@ function ChatTab({authUser,tasks,habits,onAddTask}){
   const[searchErr,setSearchErr]=useState('');
   const[searching,setSearching]=useState(false);
   const ia=IaStyle(T,ui);
+  const prevChatsRef=useRef([]);
+  const openChatRef=useRef(null);
+  useEffect(()=>{openChatRef.current=openChat;},[openChat]);
+
+  // Request browser notification permission once user is logged in
+  useEffect(()=>{
+    if(!authUser)return;
+    if('Notification' in window&&Notification.permission==='default'){
+      Notification.requestPermission().catch(()=>{});
+    }
+  },[authUser?.uid]);
 
   useEffect(()=>{
     if(!authUser||!_db)return;
@@ -2180,13 +2224,37 @@ function ChatTab({authUser,tasks,habits,onAddTask}){
       .onSnapshot(async snap=>{
         const data=snap.docs.map(d=>({id:d.id,...d.data()}));
         data.sort((a,b)=>(b.lastTs?.seconds||0)-(a.lastTs?.seconds||0));
-        setChats(data);
+        // Load profiles
         const uids=[...new Set(data.flatMap(c=>c.participants).filter(u=>u!==authUser.uid))];
         const profs={};
         await Promise.all(uids.map(async uid=>{
           try{const p=await _db.collection('profiles').doc(uid).get();if(p.exists)profs[uid]=p.data();}catch(e){}
         }));
         setProfiles(p=>({...p,...profs}));
+        // Compute unread count
+        const unread=data.filter(chat=>{
+          const myLastRead=chat.lastReadBy?.[authUser.uid]?.seconds??0;
+          const lastTs=chat.lastTs?.seconds??0;
+          return lastTs>0&&lastTs>myLastRead;
+        }).length;
+        if(onUnreadChange)onUnreadChange(unread);
+        // Show browser notification for new messages (not on first load)
+        if(prevChatsRef.current.length>0&&'Notification' in window&&Notification.permission==='granted'){
+          data.forEach(chat=>{
+            const prev=prevChatsRef.current.find(c=>c.id===chat.id);
+            const myLastRead=chat.lastReadBy?.[authUser.uid]?.seconds??0;
+            const prevLastTs=prev?.lastTs?.seconds??0;
+            const newLastTs=chat.lastTs?.seconds??0;
+            if(newLastTs>prevLastTs&&newLastTs>myLastRead&&chat.id!==openChatRef.current?.id){
+              const fromUid=chat.participants.find(u=>u!==authUser.uid);
+              const sender=profs[fromUid];
+              const senderName=sender?.name||sender?.email||'Новое сообщение';
+              try{new Notification(senderName,{body:chat.lastMsg||'Новое сообщение',icon:'./icon-192.png',tag:chat.id,silent:false});}catch(_){}
+            }
+          });
+        }
+        prevChatsRef.current=data;
+        setChats(data);
       },e=>console.warn('chats:',e));
     return unsub;
   },[authUser?.uid]);
@@ -2278,7 +2346,7 @@ function ChatTab({authUser,tasks,habits,onAddTask}){
 }
 
 /* ===== SHARED HABIT CARD ===== */
-function SharedHabitCard({sh,myUid,dark,handleProps,onEdit}){
+function SharedHabitCard({sh,myUid,dark,handleProps={},onEdit}){
   const{T}=useT();
   const P=dark?PD:PL;
   const p=P[Math.min(Math.max(sh.habit?.colorIdx||0,0),P.length-1)];
@@ -2329,7 +2397,7 @@ function SharedHabitCard({sh,myUid,dark,handleProps,onEdit}){
   return <div style={{background:p.bg,borderRadius:28,boxShadow:'0 4px 20px rgba(0,0,0,.07)'}}>
     <div style={{padding:'18px 20px'}}>
       <div style={{display:'flex',alignItems:'flex-start',gap:8,marginBottom:12}}>
-        <div style={{width:18,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:6,opacity:.25,cursor:'grab'}}>
+        <div onPointerDown={handleProps.onPointerDown} style={{width:18,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:6,opacity:.45,touchAction:'none',cursor:'grab',userSelect:'none',WebkitUserSelect:'none'}}>
           <svg width="10" height="16" viewBox="0 0 10 16" fill={p.text}>
             <circle cx="3" cy="2" r="1.5"/><circle cx="3" cy="8" r="1.5"/><circle cx="3" cy="14" r="1.5"/>
             <circle cx="8" cy="2" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="14" r="1.5"/>
@@ -2497,6 +2565,7 @@ function App(){
   const[showAuth,setShowAuth]=useState(false);
   const[showAccount,setShowAccount]=useState(false);
   const[needsReenter,setNeedsReenter]=useState(false);
+  const[unreadChats,setUnreadChats]=useState(0);
   const[syncStatus,setSyncStatus]=useState('idle'); // 'idle'|'syncing'|'synced'|'error'
   const[lastSync,setLastSync]=useState(null);
   // Social state
@@ -2781,7 +2850,8 @@ function App(){
             {tid===1&&<HabitsTab habits={habits} setHabits={setHabits} dark={dark} onToggleDark={()=>setDark(d=>!d)} sharedHabits={sharedHabits} myUid={authUser?.uid}/>}
             {tid===2&&<SRTab dark={dark} onToggleDark={()=>setDark(d=>!d)}/>}
             {tid===3&&<ChatTab authUser={authUser} tasks={tasks} habits={habits}
-              onAddTask={t=>setTasks(ts=>[{...t,id:Date.now(),done:false},...ts])}/>}
+              onAddTask={t=>setTasks(ts=>[{...t,id:Date.now(),done:false},...ts])}
+              onUnreadChange={setUnreadChats}/>}
           </div>;
         })}
       </div>
@@ -2790,8 +2860,11 @@ function App(){
         <div style={{maxWidth:ui.isPhone?'100%':600,margin:'0 auto',display:'flex',alignItems:'stretch'}}>
           {TABS.map(t=>{
             const act=tab===t.id;
-            return <button key={t.id} onClick={()=>go(t.id)} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:ui.isPhone?3:2,padding:ui.isPhone?'10px 4px 14px':'8px 4px 10px',border:'none',cursor:'pointer',background:'transparent',color:act?T.ton:T.toff,transition:'color .18s',WebkitTapHighlightColor:'transparent'}}>
-              <t.Icon c={act?T.ton:T.toff} s={ui.isPhone?23:20}/>
+            return <button key={t.id} onClick={()=>go(t.id)} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:ui.isPhone?3:2,padding:ui.isPhone?'10px 4px 14px':'8px 4px 10px',border:'none',cursor:'pointer',background:'transparent',color:act?T.ton:T.toff,transition:'color .18s',WebkitTapHighlightColor:'transparent',position:'relative'}}>
+              <div style={{position:'relative',display:'inline-flex'}}>
+                <t.Icon c={act?T.ton:T.toff} s={ui.isPhone?23:20}/>
+                {t.id===3&&unreadChats>0&&<div style={{position:'absolute',top:-2,right:-4,width:8,height:8,borderRadius:4,background:'#ff3b30',border:'1.5px solid '+T.tb,flexShrink:0}}/>}
+              </div>
               <span style={{fontSize:ui.isPhone?10:9,fontWeight:act?700:400,transition:'font-weight .18s'}}>{t.l}</span>
             </button>;
           })}
