@@ -78,6 +78,10 @@ const{useState,useEffect,useRef,createContext,useContext}=React;
  *       allow read, write: if request.auth != null && request.auth.uid in resource.data.participants;
  *       allow create: if request.auth != null && request.auth.uid in request.resource.data.participants;
  *     }
+ *     match /sharedStacks/{stackId} {
+ *       allow read, write: if request.auth != null && request.auth.uid in resource.data.participants;
+ *       allow create: if request.auth != null && request.auth.uid in request.resource.data.participants;
+ *     }
  *   }
  * }
  */
@@ -184,7 +188,7 @@ async function sendChatMsg(cid,from,type,content){
   const base={type,from,ts:firebase.firestore.FieldValue.serverTimestamp()};
   if(type!=='text')base.status='pending';
   await _db.collection('chats').doc(cid).collection('messages').add({...base,...content});
-  const prev=type==='text'?content.text:type==='task'?'📋 Карточка':type==='stack'?'📚 Стопка карточек':'🔄 Совместная привычка';
+  const prev=type==='text'?content.text:type==='task'?'📋 Карточка':type==='stack'?'📚 Стопка карточек':type==='habit'?'🔄 Совместная привычка':'📦 Общая колода';
   await _db.collection('chats').doc(cid).update({lastMsg:prev,lastTs:firebase.firestore.FieldValue.serverTimestamp()});
 }
 async function setChatMsgStatus(cid,mid,status){
@@ -208,6 +212,29 @@ async function leaveSharedHabit(shId){
 async function toggleSharedHabitDay(shId,uid,dateStr,val){
   const key='d_'+dateStr.replace(/[\s,]/g,'_');
   try{await _db.collection('sharedHabits').doc(shId).update({[`tracking.${uid}.${key}`]:val});}catch(e){}
+}
+async function createSharedStackDoc(uid1,uid2,name,tasks){
+  const id='ss_'+Date.now();
+  await _db.collection('sharedStacks').doc(id).set({
+    id,status:'pending',participants:[uid1,uid2],invitedBy:uid1,
+    name,tasks:tasks.map(t=>({id:String(t.id),text:t.text,notes:t.notes||'',colorIdx:t.colorIdx||0})),
+    doneTaskIds:[]
+  });
+  return id;
+}
+async function activateSharedStack(ssId){
+  try{await _db.collection('sharedStacks').doc(ssId).update({status:'active'});}catch(e){}
+}
+async function leaveSharedStack(ssId){
+  try{await _db.collection('sharedStacks').doc(ssId).update({status:'left'});}catch(e){}
+}
+async function toggleSharedStackTask(ssId,taskId,done){
+  try{await _db.collection('sharedStacks').doc(ssId).update({
+    doneTaskIds:done?firebase.firestore.FieldValue.arrayUnion(taskId):firebase.firestore.FieldValue.arrayRemove(taskId)
+  });}catch(e){}
+}
+async function markChatRead(chatId,uid){
+  try{await _db.collection('chats').doc(chatId).update({[`lastReadBy.${uid}`]:firebase.firestore.FieldValue.serverTimestamp()});}catch(e){}
 }
 
 // Merge по id: данные из b перезаписывают a при конфликте
@@ -875,7 +902,7 @@ function FolderIcon({color,size=22}){
   </svg>;
 }
 
-function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDark}){
+function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDark,sharedStacks=[],myUid}){
   const{T,ui}=useT();
   const P=dark?PD:PL;
   const pof=n=>P[Math.min(Math.max(n||0,0),P.length-1)];
@@ -893,11 +920,16 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
   const[editDeck,setEditDeck]=useState(null);
   const[editDeckName,setEditDeckName]=useState('');
   const[editDeckColorIdx,setEditDeckColorIdx]=useState(0);
+  const[openSharedStackId,setOpenSharedStackId]=useState(null);
+  const[editSS,setEditSS]=useState(null);
   const rl={none:null,daily:'↺ Каждый день',weekly:'↺ Каждую нед.',monthly:'↺ Каждый мес.',yearly:'↺ Каждый год'};
 
-  const activeTasks=openFolderId
-    ?tasks.filter(t=>t.listId===openFolderId&&isScheduledForDate(t))
-    :tasks.filter(t=>!t.listId&&isScheduledForDate(t));
+  const openSharedStack=openSharedStackId?sharedStacks.find(ss=>ss.id===openSharedStackId):null;
+  const activeTasks=openSharedStack
+    ?(openSharedStack.tasks||[]).map(t=>({...t,done:(openSharedStack.doneTaskIds||[]).includes(t.id),_isSharedTask:true,_stackId:openSharedStackId}))
+    :openFolderId
+      ?tasks.filter(t=>t.listId===openFolderId&&isScheduledForDate(t))
+      :tasks.filter(t=>!t.listId&&isScheduledForDate(t));
   const undone=activeTasks.filter(t=>!t.done);
   const done=activeTasks.filter(t=>t.done);
   const openFolder=lists.find(l=>l.id===openFolderId);
@@ -908,7 +940,10 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
     if(openFolderId)newTask.listId=openFolderId;
     setTasks(ts=>[newTask,...ts]);setAddText('');setWeekdays([]);setAdding(false);
   }
-  function swR(card){setTasks(ts=>ts.map(t=>t.id===card.id?{...t,done:true,reps:t.reps+1,lastDone:new Date().toISOString()}:t));}
+  function swR(card){
+    if(card._isSharedTask)toggleSharedStackTask(card._stackId,String(card.id),true);
+    else setTasks(ts=>ts.map(t=>t.id===card.id?{...t,done:true,reps:t.reps+1,lastDone:new Date().toISOString()}:t));
+  }
   function swL(card){setTasks(ts=>{const o=ts.filter(t=>t.id!==card.id);return[...o.filter(t=>!t.done),card,...o.filter(t=>t.done)];});}
   function shuffle(){
     if(sp||undone.length<2)return;
@@ -927,7 +962,14 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
   }
   function saveEdit(id,text,notes,recur,ci,weekdays){setTasks(ts=>ts.map(t=>t.id===id?{...t,text,notes,recur,colorIdx:ci,weekdays}:t));setEdit(null);}
   function del(id){setTasks(ts=>ts.filter(t=>t.id!==id));setEdit(null);}
-  function toggle(id){setTasks(ts=>ts.map(t=>{if(t.id!==id)return t;const d=!t.done;return{...t,done:d,reps:d?t.reps+1:Math.max(0,t.reps-1),lastDone:d?new Date().toISOString():t.lastDone};}));}
+  function toggle(id){
+    if(openSharedStack){
+      const t=activeTasks.find(t=>t.id===id);
+      toggleSharedStackTask(openSharedStackId,id,!t?.done);
+    }else{
+      setTasks(ts=>ts.map(t=>{if(t.id!==id)return t;const d=!t.done;return{...t,done:d,reps:d?t.reps+1:Math.max(0,t.reps-1),lastDone:d?new Date().toISOString():t.lastDone};}));
+    }
+  }
   function createFolder(){
     if(!newFolderName.trim())return;
     const id=Date.now().toString();
@@ -947,17 +989,22 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
   }
 
   return <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
+    {editSS&&<Sheet onClose={()=>setEditSS(null)}>
+      <SectionLabel>Общая колода</SectionLabel>
+      <div style={{background:T.ctrl,borderRadius:14,padding:'12px 16px',marginBottom:16,fontSize:16,fontWeight:600,color:T.text}}>{editSS.name}</div>
+      <GlassBtn danger onClick={async()=>{await leaveSharedStack(editSS.id);setEditSS(null);if(openSharedStackId===editSS.id)setOpenSharedStackId(null);}}>Покинуть колоду</GlassBtn>
+    </Sheet>}
     {edit&&<EditTaskSheet task={edit} onSave={(t,n,r,c,w)=>saveEdit(edit.id,t,n,r,c,w)} onDelete={()=>del(edit.id)} onToHabit={()=>{convertToHabit(edit.id);setEdit(null);}} onClose={()=>setEdit(null)}/>}
     {/* Header */}
     <div style={{flexShrink:0,padding:ui.isPhone?'20px 0 14px':'18px 0 12px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
       <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0,flex:1}}>
-        {openFolderId&&<button onClick={()=>setOpenFolderId(null)} style={{width:36,height:36,borderRadius:11,border:'0.5px solid '+T.sep,background:T.ctrl,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,backdropFilter:BL,WebkitBackdropFilter:BL}}>
+        {(openFolderId||openSharedStackId)&&<button onClick={()=>{setOpenFolderId(null);setOpenSharedStackId(null);}} style={{width:36,height:36,borderRadius:11,border:'0.5px solid '+T.sep,background:T.ctrl,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,backdropFilter:BL,WebkitBackdropFilter:BL}}>
           <IcChevL c={T.ctrlTxt} s={18} sw={2}/>
         </button>}
         <div style={{minWidth:0}}>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             {openFolder&&<FolderIcon color={P[openFolder.colorIdx||0].dot} size={22}/>}
-            <span style={{fontSize:ui.isPhone?30:26,fontWeight:700,letterSpacing:-.5,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{openFolder?openFolder.name:'Дела'}</span>
+            <span style={{fontSize:ui.isPhone?30:26,fontWeight:700,letterSpacing:-.5,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{openSharedStack?openSharedStack.name:openFolder?openFolder.name:'Дела'}</span>
           </div>
           <div style={{fontSize:ui.isPhone?14:13,color:T.muted,fontWeight:500,marginTop:2}}>{undone.length} осталось{openFolder?' В· колода':done.length>0?' В· '+done.length+' скрыто':''}</div>
         </div>
@@ -1054,6 +1101,17 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
         </div>;
       })}
     </div>}
+    {!listView&&sharedStacks.length>0&&<div style={{flexShrink:0,marginBottom:8,display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
+      {sharedStacks.map(ss=>{
+        const undone=(ss.tasks||[]).filter(t=>!(ss.doneTaskIds||[]).includes(t.id)).length;
+        return <div key={ss.id} onClick={()=>{setOpenSharedStackId(ss.id);setOpenFolderId(null);}}
+          style={{borderRadius:12,padding:'5px 10px',cursor:'pointer',display:'flex',alignItems:'center',gap:5,background:openSharedStackId===ss.id?'#ff9500':'rgba(255,149,0,.12)',border:'0.5px solid rgba(255,149,0,.25)'}}>
+          <span style={{fontSize:12}}>📦</span>
+          <span style={{fontSize:12,fontWeight:700,color:openSharedStackId===ss.id?'#fff':'#ff9500'}}>{ss.name}</span>
+          {undone>0&&<span style={{fontSize:10,color:openSharedStackId===ss.id?'rgba(255,255,255,.7)':'#ff9500'}}>({undone})</span>}
+        </div>;
+      })}
+    </div>}
 
     {/* List view вЂ” shows decks + root tasks */}
     {listView&&<div className='no-select' style={{flex:1,overflowY:'auto',paddingTop:8,paddingBottom:8}}>
@@ -1097,6 +1155,28 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
           :<div onClick={()=>setAddingFolder(true)} style={{background:'rgba(128,128,128,.06)',borderRadius:14,padding:'10px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:8,border:'1px dashed rgba(128,128,128,.18)',marginBottom:12}}>
               <IcPlus c={T.muted} s={14}/><span style={{fontSize:14,color:T.muted,fontWeight:500}}>Новая колода</span>
             </div>}
+        {/* Shared stacks section */}
+        {!openFolderId&&sharedStacks.length>0&&<>
+          <div style={{fontSize:11,fontWeight:700,letterSpacing:1.5,color:T.muted,textTransform:'uppercase',marginBottom:8,marginTop:8,paddingLeft:4}}>Общие колоды</div>
+          {sharedStacks.map(ss=>{
+            const done=(ss.doneTaskIds||[]).length;
+            const total=(ss.tasks||[]).length;
+            return <div key={ss.id} style={{background:'rgba(255,149,0,.09)',borderRadius:18,marginBottom:8,overflow:'hidden',border:'0.5px solid rgba(255,149,0,.2)'}}>
+              <div onClick={()=>{setOpenSharedStackId(ss.id);setOpenFolderId(null);}} style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',cursor:'pointer'}}>
+                <span style={{fontSize:18}}>📦</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:15,fontWeight:700,color:T.text}}>{ss.name}</div>
+                  <div style={{fontSize:12,color:T.sub,marginTop:1}}>{done}/{total} выполнено</div>
+                </div>
+                {total>0&&<div style={{width:44,height:4,borderRadius:2,background:'rgba(0,0,0,.1)',overflow:'hidden'}}>
+                  <div style={{width:(total?(done/total*100):0)+'%',height:'100%',background:'#ff9500',borderRadius:2}}/>
+                </div>}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.sub} strokeWidth="2" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                <button onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();setEditSS(ss);}} style={{background:'none',border:'none',cursor:'pointer',display:'flex',opacity:.5,padding:2}}><IcPencil c={T.sub} s={13}/></button>
+              </div>
+            </div>;
+          })}
+        </>}
         {/* Root tasks separator */}
         {tasks.filter(t=>!t.listId).length>0&&lists.length>0&&<div style={{fontSize:11,fontWeight:700,letterSpacing:1.5,color:T.muted,textTransform:'uppercase',marginBottom:8,marginTop:4,paddingLeft:4}}>Без колоды</div>}
       </>}
@@ -1246,22 +1326,19 @@ function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
     setSrc(null);setTgt(null);
   }
 
-  return <div style={{position:'relative'}}>
+  return <div style={{position:'relative',overflow:'visible'}}>
     {items.map((item,idx)=>{
       const isDrag=idx===src;
-      const handleProps={
-        onPointerDown:e=>onPs(idx,e),
-        style:{cursor:'grab',touchAction:'none',WebkitUserSelect:'none',userSelect:'none'},
-      };
       return <div
         key={keyFn(item,idx)}
         ref={el=>refs.current[idx]=el}
+        onPointerDown={e=>onPs(idx,e)}
         onPointerMove={onPm}
         onPointerUp={onPe}
         onPointerCancel={onPe}
         onContextMenu={e=>e.preventDefault()}
         style={{marginBottom:gap,touchAction:'pan-y',position:'relative',borderRadius:28,willChange:'transform'}}
-      >{renderItem(item,idx,isDrag,handleProps)}</div>;
+      >{renderItem(item,idx,isDrag)}</div>;
     })}
   </div>;
 }
@@ -1336,41 +1413,45 @@ function SwipeableCard({children,onSwipeRight,onSwipeLeft,onSwipeUp,style={}}){
   </div>;
 }
 
-function HabitCardsList({habits,setHabits,tday,d30,toggleDay,setDayState,setDayValue,streak,setEditH,sharedHabits=[],myUid,dark,onEditShared}){
+function HabitCardsList({habits,setHabits,tday,d30,toggleDay,setDayState,setDayValue,streak,setEditH,sharedHabits=[],myUid,dark,onEditShared,habitOrder=[],onHabitReorder}){
   const{T}=useT();
   const P=dark?PD:PL;
   const pof=n=>P[Math.min(Math.max(n||0,0),P.length-1)];
 
-  const allItems=[
+  const allRaw=[
     ...habits.map(h=>({_t:'r',_id:h.id,d:h})),
     ...sharedHabits.map(sh=>({_t:'s',_id:sh.id,d:sh}))
   ];
+  const allItems=[
+    ...habitOrder.map(k=>allRaw.find(i=>i._t===k._t&&i._id===k._id)).filter(Boolean),
+    ...allRaw.filter(i=>!habitOrder.some(k=>k._t===i._t&&k._id===i._id))
+  ];
 
   function reorder(from,to){
-    if(from>=habits.length||to>=habits.length)return;
+    const newItems=[...allItems];
+    const[moved]=newItems.splice(from,1);
+    newItems.splice(to,0,moved);
+    if(onHabitReorder)onHabitReorder(newItems.map(i=>({_t:i._t,_id:i._id})));
+    const newRegular=newItems.filter(i=>i._t==='r').map(i=>i.d);
     setHabits(hs=>{
-      const visibleIds=habits.map(h=>h.id);
-      const visible=hs.filter(h=>visibleIds.includes(h.id));
-      const rest=hs.filter(h=>!visibleIds.includes(h.id));
-      const item=visible.splice(from,1)[0];
-      visible.splice(to,0,item);
-      return [...visible,...rest];
+      const rest=hs.filter(h=>!newRegular.find(r=>r.id===h.id));
+      return [...newRegular,...rest];
     });
   }
 
   if(allItems.length===0)return <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:T.muted,fontSize:16}}>Нет привычек</div>;
 
   return <div className='no-select' style={{flex:1,overflowY:'auto',paddingTop:8,paddingBottom:8}}>
-    <SortableList items={allItems} keyFn={item=>item._id} onReorder={reorder} renderItem={(item,idx,isDrag,handleProps)=>{
+    <SortableList items={allItems} keyFn={item=>item._id} onReorder={reorder} renderItem={(item,idx,isDrag)=>{
       if(item._t==='s'){
-        return <SharedHabitCard sh={item.d} myUid={myUid} dark={dark} handleProps={handleProps} onEdit={()=>onEditShared&&onEditShared(item.d)}/>;
+        return <SharedHabitCard sh={item.d} myUid={myUid} dark={dark} onEdit={()=>onEditShared&&onEditShared(item.d)}/>;
       }
       const h=item.d;
       const p=pof(h.colorIdx);const str=streak(h);const td=h.days?.find(d=>d.date===tday)?.state||null;
       return <div style={{background:p.bg,borderRadius:28,boxShadow:isDrag?'0 20px 50px rgba(0,0,0,.25)':'0 4px 20px rgba(0,0,0,.07)'}}>
         <div style={{padding:'18px 20px'}}>
           <div style={{display:'flex',alignItems:'flex-start',gap:8,marginBottom:12}}>
-            <div {...(handleProps||{})} style={{...((handleProps||{}).style),width:18,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:6,opacity:.25}}>
+            <div style={{width:18,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:6,opacity:.25,cursor:'grab'}}>
               <svg width="10" height="16" viewBox="0 0 10 16" fill={p.text}>
                 <circle cx="3" cy="2" r="1.5"/><circle cx="3" cy="8" r="1.5"/><circle cx="3" cy="14" r="1.5"/>
                 <circle cx="8" cy="2" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="14" r="1.5"/>
@@ -1412,6 +1493,8 @@ function HabitsTab({habits,setHabits,dark,onToggleDark,sharedHabits=[],myUid}){
   const[calH,setCalH]=useState(null);
   const[editH,setEditH]=useState(null);
   const[editSH,setEditSH]=useState(null);
+  const[habitOrder,setHabitOrder]=useState(()=>{try{return JSON.parse(localStorage.getItem('ho9')||'[]');}catch{return[];}});
+  useEffect(()=>{localStorage.setItem('ho9',JSON.stringify(habitOrder));},[habitOrder]);
 
   const visibleHabits=habits.filter(h=>isScheduledForDate(h,tday));
   function add(){if(!addText.trim())return;setHabits(hs=>[ensDays({id:Date.now(),text:addText.trim(),notes:'',colorIdx:hs.length%6,weekdays,days:[],totalReps:0},d90),...hs]);setAddText('');setWeekdays([]);setAdding(false);}
@@ -1553,7 +1636,7 @@ function HabitsTab({habits,setHabits,dark,onToggleDark,sharedHabits=[],myUid}){
         </>}
     </div>}
     {/* Cards mode */}
-    {mode==='cards'&&<HabitCardsList habits={visibleHabits} setHabits={setHabits} tday={tday} d30={d30} toggleDay={toggleDay} setDayState={setDayState} setDayValue={setDayValue} streak={streak} setEditH={setEditH} sharedHabits={sharedHabits} myUid={myUid} dark={dark} onEditShared={sh=>setEditSH(sh)}/>}
+    {mode==='cards'&&<HabitCardsList habits={visibleHabits} setHabits={setHabits} tday={tday} d30={d30} toggleDay={toggleDay} setDayState={setDayState} setDayValue={setDayValue} streak={streak} setEditH={setEditH} sharedHabits={sharedHabits} myUid={myUid} dark={dark} onEditShared={sh=>setEditSH(sh)} habitOrder={habitOrder} onHabitReorder={setHabitOrder}/>}
   </div>;
 }
 
@@ -1820,7 +1903,7 @@ function SwipeCard({children,onDecline}){
 }
 
 /* ===== CHAT MESSAGE ===== */
-function ChatMessage({msg,isOwn,chatId,myUid,onAddTask}){
+function ChatMessage({msg,isOwn,chatId,myUid,onAddTask,otherLastRead=0}){
   const{T,ui}=useT();
   const[declined,setDeclined]=useState(msg.status==='declined');
   const[accepted,setAccepted]=useState(msg.status==='accepted');
@@ -1828,6 +1911,7 @@ function ChatMessage({msg,isOwn,chatId,myUid,onAddTask}){
   const isTask=msg.type==='task';
   const isStack=msg.type==='stack';
   const isHabit=msg.type==='habit';
+  const isSharedStack=msg.type==='sharedstack';
 
   async function accept(){
     await setChatMsgStatus(chatId,msg.id,'accepted');
@@ -1835,6 +1919,7 @@ function ChatMessage({msg,isOwn,chatId,myUid,onAddTask}){
     if(isTask&&onAddTask)onAddTask({...msg.task,id:Date.now(),done:false});
     if(isStack&&onAddTask)(msg.tasks||[]).forEach((t,i)=>onAddTask({...t,id:Date.now()+i,done:false}));
     if(isHabit&&msg.sharedHabitId)await activateSharedHabit(msg.sharedHabitId);
+    if(isSharedStack&&msg.sharedStackId)await activateSharedStack(msg.sharedStackId);
   }
   async function decline(){
     await setChatMsgStatus(chatId,msg.id,'declined');
@@ -1842,10 +1927,15 @@ function ChatMessage({msg,isOwn,chatId,myUid,onAddTask}){
   }
 
   if(isText){
-    return <div style={{display:'flex',justifyContent:isOwn?'flex-end':'flex-start'}}>
+    const msgTs=msg.ts?.seconds??0;
+    const isRead=isOwn&&otherLastRead>0&&msgTs>0&&msgTs<=otherLastRead;
+    return <div style={{display:'flex',flexDirection:'column',alignItems:isOwn?'flex-end':'flex-start',gap:2}}>
       <div style={{maxWidth:'78%',padding:'9px 14px',borderRadius:isOwn?'18px 18px 4px 18px':'18px 18px 18px 4px',background:isOwn?T.pill:'rgba(120,120,128,.15)',color:isOwn?T.pillTxt:T.text,fontSize:15,lineHeight:1.4,wordBreak:'break-word'}}>
         {msg.text}
       </div>
+      {isOwn&&<div style={{fontSize:11,color:isRead?'#007aff':'rgba(128,128,128,.45)',paddingRight:2}}>
+        {isRead?'✓✓':'✓'}
+      </div>}
     </div>;
   }
 
@@ -1865,9 +1955,10 @@ function ChatMessage({msg,isOwn,chatId,myUid,onAddTask}){
     task:{accent:'#007aff',bg:'rgba(0,122,255,.09)',label:'Задача',icon:'📋'},
     stack:{accent:'#5856d6',bg:'rgba(88,86,214,.09)',label:'Стопка',icon:'📚'},
     habit:{accent:'#30d158',bg:'rgba(48,209,88,.09)',label:'Совместная привычка',icon:'🔄'},
+    sharedstack:{accent:'#ff9500',bg:'rgba(255,149,0,.09)',label:'Общая колода',icon:'📦'},
   };
   const tm=typeMap[msg.type]||typeMap.task;
-  const cardTitle=isTask?(msg.task?.text||'Задача'):isStack?`${(msg.tasks||[]).length} карточек`:(msg.habit?.text||'Привычка');
+  const cardTitle=isTask?(msg.task?.text||'Задача'):isStack?`${(msg.tasks||[]).length} карточек`:isSharedStack?(msg.name||`Колода`):(msg.habit?.text||'Привычка');
 
   const inner=<div className={!isOwn&&msg.status==='pending'?'card-in':''} style={{
     background:T.card,borderRadius:18,overflow:'hidden',maxWidth:272,
@@ -1904,13 +1995,14 @@ function ChatMessage({msg,isOwn,chatId,myUid,onAddTask}){
 
 /* ===== CHAT VIEW ===== */
 function ChatView({authUser,chatId,otherProfile,onBack,tasks,habits,onAddTask}){
-  const{T,ui}=useT();
+  const{T,ui,dark}=useT();
   const[messages,setMessages]=useState([]);
   const[text,setText]=useState('');
   const[sending,setSending]=useState(false);
   const[showMenu,setShowMenu]=useState(false);
   const[shareMode,setShareMode]=useState(null);
   const[selTasks,setSelTasks]=useState([]);
+  const[chatMeta,setChatMeta]=useState(null);
   const bottomRef=useRef(null);
   const ia=IaStyle(T,ui);
 
@@ -1921,9 +2013,19 @@ function ChatView({authUser,chatId,otherProfile,onBack,tasks,habits,onAddTask}){
       .onSnapshot(snap=>{
         setMessages(snap.docs.map(d=>({id:d.id,...d.data()})));
         requestAnimationFrame(()=>bottomRef.current?.scrollIntoView({behavior:'smooth'}));
+        if(authUser)markChatRead(chatId,authUser.uid);
       },e=>console.warn('msgs:',e));
     return unsub;
   },[chatId]);
+
+  useEffect(()=>{
+    if(!_db||!authUser)return;
+    markChatRead(chatId,authUser.uid);
+    const unsub=_db.collection('chats').doc(chatId).onSnapshot(snap=>{
+      if(snap.exists)setChatMeta(snap.data());
+    },e=>console.warn('chatMeta:',e));
+    return unsub;
+  },[chatId,authUser?.uid]);
 
   async function send(){
     if(!text.trim()||sending)return;
@@ -1947,6 +2049,14 @@ function ChatView({authUser,chatId,otherProfile,onBack,tasks,habits,onAddTask}){
     await sendChatMsg(chatId,authUser.uid,'habit',{habit:{text:habit.text,colorIdx:habit.colorIdx||0,weekdays:habit.weekdays||[]},sharedHabitId:shId});
     setShareMode(null);
   }
+  async function sendSharedStack(){
+    if(!selTasks.length||!otherProfile?.uid)return;
+    const sel=tasks.filter(t=>selTasks.includes(t.id));
+    const name=sel.length===1?sel[0].text:`Колода (${sel.length} задач)`;
+    const ssId=await createSharedStackDoc(authUser.uid,otherProfile.uid,name,sel);
+    await sendChatMsg(chatId,authUser.uid,'sharedstack',{name,sharedStackId:ssId});
+    setShareMode(null);setSelTasks([]);
+  }
 
   const btnBase={border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0};
 
@@ -1967,7 +2077,8 @@ function ChatView({authUser,chatId,otherProfile,onBack,tasks,habits,onAddTask}){
     <div style={{flex:1,overflowY:'auto',paddingTop:12,display:'flex',flexDirection:'column',gap:10}}>
       {messages.length===0&&<div style={{textAlign:'center',color:T.muted,marginTop:50,fontSize:14}}>Начните переписку</div>}
       {messages.map(msg=><ChatMessage key={msg.id} msg={msg} isOwn={msg.from===authUser.uid}
-        chatId={chatId} myUid={authUser.uid} onAddTask={onAddTask}/>)}
+        chatId={chatId} myUid={authUser.uid} onAddTask={onAddTask}
+        otherLastRead={chatMeta?.lastReadBy?.[otherProfile?.uid]?.seconds??0}/>)}
       <div ref={bottomRef} style={{height:4}}/>
     </div>
     {/* Share picker panels */}
@@ -2005,6 +2116,25 @@ function ChatView({authUser,chatId,otherProfile,onBack,tasks,habits,onAddTask}){
         {habits.length===0&&<div style={{padding:'16px',color:T.muted,fontSize:14}}>Нет привычек</div>}
       </div>
     </div>}
+    {shareMode==='sharedstack'&&<div style={{flexShrink:0,borderTop:'0.5px solid '+T.sep,padding:'14px 0 8px'}}>
+      <div style={{fontSize:11,fontWeight:700,letterSpacing:1.4,color:T.muted,textTransform:'uppercase',marginBottom:10}}>Общая колода — выбери задачи</div>
+      <div style={{maxHeight:180,overflowY:'auto',marginBottom:10}}>
+        {tasks.filter(t=>!t.done).map(t=>{
+          const sel=selTasks.includes(t.id);
+          const p=(dark?PD:PL)[t.colorIdx||0];
+          return <div key={t.id} onClick={()=>setSelTasks(s=>sel?s.filter(i=>i!==t.id):[...s,t.id])} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 4px',borderBottom:'0.5px solid '+T.sep,cursor:'pointer'}}>
+            <div style={{width:20,height:20,borderRadius:6,border:'2px solid '+(sel?p.dot:'rgba(128,128,128,.3)'),background:sel?p.dot:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              {sel&&<IcCheck c="#fff" s={10} sw={2.5}/>}
+            </div>
+            <span style={{fontSize:14,color:T.text,flex:1}}>{t.text}</span>
+          </div>;
+        })}
+      </div>
+      <div style={{display:'flex',gap:8}}>
+        <GlassBtn onClick={()=>{setShareMode(null);setSelTasks([]);}}>Отмена</GlassBtn>
+        <button disabled={!selTasks.length||!otherProfile?.uid} onClick={sendSharedStack} style={{flex:1,padding:'9px 0',borderRadius:12,border:'none',background:'#ff9500',color:'#fff',fontSize:14,fontWeight:600,cursor:selTasks.length?'pointer':'not-allowed',opacity:selTasks.length?1:.5}}>📦 Отправить колоду ({selTasks.length})</button>
+      </div>
+    </div>}
     {/* Input */}
     <div style={{paddingTop:8,flexShrink:0,display:'flex',gap:8,alignItems:'center'}}>
       <div style={{position:'relative'}}>
@@ -2013,7 +2143,7 @@ function ChatView({authUser,chatId,otherProfile,onBack,tasks,habits,onAddTask}){
           <IcPlus c={showMenu?T.pillTxt:T.ctrlTxt} s={20} sw={2}/>
         </button>
         {showMenu&&<div style={{position:'absolute',bottom:50,left:0,background:T.card,borderRadius:14,border:'0.5px solid '+T.sep,padding:'4px 0',minWidth:170,boxShadow:'0 8px 32px rgba(0,0,0,.18)',zIndex:20}}>
-          {[['task','📋 Карточку'],['stack','📚 Стопку карточек'],['habit','🔄 Привычку (совместную)']].map(([m,l])=>
+          {[['task','📋 Карточку'],['stack','📚 Стопку карточек'],['habit','🔄 Привычку (совместную)'],['sharedstack','📦 Общую колоду']].map(([m,l])=>
             <div key={m} onClick={()=>{setShareMode(shareMode===m?null:m);setShowMenu(false);}}
               style={{padding:'11px 16px',fontSize:14,color:T.text,cursor:'pointer',WebkitTapHighlightColor:'transparent'}}>{l}</div>
           )}
@@ -2199,7 +2329,7 @@ function SharedHabitCard({sh,myUid,dark,handleProps,onEdit}){
   return <div style={{background:p.bg,borderRadius:28,boxShadow:'0 4px 20px rgba(0,0,0,.07)'}}>
     <div style={{padding:'18px 20px'}}>
       <div style={{display:'flex',alignItems:'flex-start',gap:8,marginBottom:12}}>
-        <div {...(handleProps||{})} style={{...((handleProps||{}).style),width:18,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:6,opacity:.25}}>
+        <div style={{width:18,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:6,opacity:.25,cursor:'grab'}}>
           <svg width="10" height="16" viewBox="0 0 10 16" fill={p.text}>
             <circle cx="3" cy="2" r="1.5"/><circle cx="3" cy="8" r="1.5"/><circle cx="3" cy="14" r="1.5"/>
             <circle cx="8" cy="2" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="14" r="1.5"/>
@@ -2371,6 +2501,7 @@ function App(){
   const[lastSync,setLastSync]=useState(null);
   // Social state
   const[sharedHabits,setSharedHabits]=useState([]);
+  const[sharedStacks,setSharedStacks]=useState([]);
   const fromCloudRef=useRef(false); // true = не пушить обратно после получения с облака
   const syncRef=useRef(null);
   const syncActive=useRef(false); // true во время пуша (блокирует эхо в листенере)
@@ -2460,6 +2591,17 @@ function App(){
       .onSnapshot(snap=>{
         setSharedHabits(snap.docs.map(d=>({...d.data(),id:d.id})).filter(sh=>sh.status==='active'));
       },e=>console.warn('sharedHabits listener:',e));
+    return unsub;
+  },[authUser?.uid]);
+
+  // ===== Listener for shared stacks =====
+  useEffect(()=>{
+    if(!authUser||!_db)return;
+    const unsub=_db.collection('sharedStacks')
+      .where('participants','array-contains',authUser.uid)
+      .onSnapshot(snap=>{
+        setSharedStacks(snap.docs.map(d=>({...d.data(),id:d.id})).filter(ss=>ss.status==='active'));
+      },e=>console.warn('sharedStacks listener:',e));
     return unsub;
   },[authUser?.uid]);
 
@@ -2635,7 +2777,7 @@ function App(){
             transform:'translateX('+offset+'%)',
             transition:'transform .34s cubic-bezier(.4,0,.2,1), opacity .28s cubic-bezier(.4,0,.2,1)',
           }}>
-            {tid===0&&<DailyTab tasks={tasks} setTasks={setTasks} lists={lists} setLists={setLists} convertToHabit={convertToHabit} dark={dark} onToggleDark={()=>setDark(d=>!d)}/>}
+            {tid===0&&<DailyTab tasks={tasks} setTasks={setTasks} lists={lists} setLists={setLists} convertToHabit={convertToHabit} dark={dark} onToggleDark={()=>setDark(d=>!d)} sharedStacks={sharedStacks} myUid={authUser?.uid}/>}
             {tid===1&&<HabitsTab habits={habits} setHabits={setHabits} dark={dark} onToggleDark={()=>setDark(d=>!d)} sharedHabits={sharedHabits} myUid={authUser?.uid}/>}
             {tid===2&&<SRTab dark={dark} onToggleDark={()=>setDark(d=>!d)}/>}
             {tid===3&&<ChatTab authUser={authUser} tasks={tasks} habits={habits}
