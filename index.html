@@ -749,7 +749,7 @@ function DayStrip({habit,dates30,onToggle}){
   const tday=tod();
   const ref=useRef(null);
   useEffect(()=>{if(ref.current)ref.current.scrollLeft=ref.current.scrollWidth;},[]);
-  return <div ref={ref} style={{display:'flex',gap:3,overflowX:'auto',paddingBottom:2,paddingRight:16,scrollbarWidth:'none',msOverflowStyle:'none'}} onTouchStart={e=>e.stopPropagation()} onTouchMove={e=>e.stopPropagation()}>
+  return <div ref={ref} data-nodrag="true" style={{display:'flex',gap:3,overflowX:'auto',paddingBottom:2,paddingRight:16,scrollbarWidth:'none',msOverflowStyle:'none'}} onTouchStart={e=>e.stopPropagation()} onTouchMove={e=>e.stopPropagation()}>
     {dates30.map((date,i)=>{
       const dd=habit.days?.find(x=>x.date===date);const ddState=dd?.state||null;
       const isT=date===tday;
@@ -842,7 +842,7 @@ function TaskListsView({tasks,setTasks,lists,setLists,dark,T}){
       const expanded=expandedId===list.id;
       const p=pof(list.colorIdx);
       return <div key={list.id} style={{background:p.bg,borderRadius:22,marginBottom:12,overflow:'hidden',boxShadow:'0 4px 20px rgba(0,0,0,.07)'}}>
-        {/* Deck picker вЂ” assign card to deck */}
+        {/* Deck picker — assign card to deck */}
     {moveCard&&<Sheet onClose={()=>setMoveCard(null)}>
       <SectionLabel>Переместить в колоду</SectionLabel>
       <div style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:16,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{moveCard.text}</div>
@@ -947,8 +947,10 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
   const activeTasks=openSharedStack
     ?(openSharedStack.tasks||[]).map(t=>({...t,done:pendingDoneIds.has(t.id)||(openSharedStack.doneTaskIds||[]).includes(t.id),_isSharedTask:true,_stackId:openSharedStackId}))
     :openFolderId
-      ?tasks.filter(t=>t.listId===openFolderId&&isScheduledForDate(t))
-      :tasks.filter(t=>!t.listId&&isScheduledForDate(t));
+      // in list view show ALL tasks in the folder; in stack view only scheduled ones
+      ?(listView?tasks.filter(t=>t.listId===openFolderId):tasks.filter(t=>t.listId===openFolderId&&isScheduledForDate(t)))
+      // same for root tasks
+      :(listView?tasks.filter(t=>!t.listId):tasks.filter(t=>!t.listId&&isScheduledForDate(t)));
   const undone=activeTasks.filter(t=>!t.done);
   const done=activeTasks.filter(t=>t.done);
   // For shared stacks: show skipped items at the back of the swipe stack
@@ -1130,7 +1132,7 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
         </>}
     </div>}
 
-    {/* Deck chips вЂ” only in stack mode */}
+    {/* Deck chips — only in stack mode */}
     {!listView&&lists.length>0&&(openFolderId||tasks.filter(t=>t.listId).length>0)&&<div style={{flexShrink:0,marginBottom:8,display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
       <div onClick={()=>setOpenFolderId(null)} style={{borderRadius:12,padding:'5px 10px',cursor:'pointer',display:'flex',alignItems:'center',gap:5,background:!openFolderId?T.pill:'rgba(128,128,128,.07)',border:'0.5px solid '+(openFolderId?'rgba(128,128,128,.18)':'transparent')}}>
         <span style={{fontSize:12,fontWeight:700,color:!openFolderId?T.pillTxt:T.muted}}>Все</span>
@@ -1157,7 +1159,7 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
       })}
     </div>}
 
-    {/* List view вЂ” shows decks + root tasks */}
+    {/* List view — shows decks + root tasks */}
     {listView&&<div className='no-select' style={{flex:1,overflowY:'auto',paddingTop:8,paddingBottom:8}}>
       {/* Root tasks (no deck) */}
       {!openFolderId&&<>
@@ -1246,20 +1248,28 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
         }}
         renderItem={(task,idx,isDrag,handleProps)=>{
           const p=pof(task.colorIdx);
-          return <div style={{background:p.bg,borderRadius:22,padding:'14px 16px'}}>
+          const scheduled=isScheduledForDate(task);
+          // unscheduled tasks are dimmed in list view (still fully editable)
+          const rowOpacity=task.done?0.5:scheduled?1:0.45;
+          return <div style={{background:p.bg,borderRadius:22,padding:'13px 16px',opacity:rowOpacity,transition:'opacity .2s'}}>
             <div style={{display:'flex',gap:10,alignItems:'center'}}>
-              <div onPointerDown={handleProps?.onPointerDown} style={{width:16,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,opacity:.45,touchAction:'none',cursor:'grab',userSelect:'none',WebkitUserSelect:'none'}}>
+              {/* drag grip — still available for precise drag */}
+              <div onPointerDown={handleProps?.onPointerDown} style={{width:16,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,opacity:.4,touchAction:'none',cursor:'grab',userSelect:'none',WebkitUserSelect:'none'}}>
                 <svg width="8" height="14" viewBox="0 0 8 14" fill={p.text}><circle cx="2" cy="2" r="1.3"/><circle cx="2" cy="7" r="1.3"/><circle cx="2" cy="12" r="1.3"/><circle cx="6.5" cy="2" r="1.3"/><circle cx="6.5" cy="7" r="1.3"/><circle cx="6.5" cy="12" r="1.3"/></svg>
               </div>
-              <div onPointerDown={e=>e.stopPropagation()} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();toggle(task.id);}} onClick={e=>{e.stopPropagation();toggle(task.id);}} style={{width:24,height:24,borderRadius:'50%',flexShrink:0,cursor:'pointer',border:'2px solid '+(task.done?'transparent':p.dot),background:task.done?p.dot:'transparent',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .2s',touchAction:'manipulation',WebkitTapHighlightColor:'transparent'}}>
+              {/* checkmark */}
+              <div onPointerDown={e=>e.stopPropagation()} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();toggle(task.id);}} onClick={e=>{e.stopPropagation();toggle(task.id);}} style={{width:24,height:24,borderRadius:'50%',flexShrink:0,cursor:'pointer',border:'2px solid '+(task.done?'transparent':p.dot),background:task.done?p.dot:'transparent',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .18s',touchAction:'manipulation',WebkitTapHighlightColor:'transparent'}}>
                 {task.done&&<IcCheck c="#fff" s={11} sw={2.5}/>}
               </div>
+              {/* text */}
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:15,fontWeight:600,color:p.text,textDecoration:task.done?'line-through':'none',opacity:task.done?.5:1,lineHeight:1.3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{task.text}</div>
+                <div style={{fontSize:15,fontWeight:600,color:p.text,textDecoration:task.done?'line-through':'none',lineHeight:1.3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{task.text}</div>
                 {task.notes&&!task.done&&<div style={{fontSize:12,color:p.sub,marginTop:2,lineHeight:1.4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{task.notes}</div>}
+                {!scheduled&&!task.done&&hasSchedule(task)&&<div style={{fontSize:11,color:p.sub,marginTop:2,opacity:.7}}>{task.weekdays.map(d=>WD[d]).join(' · ')}</div>}
               </div>
-              <button onPointerDown={e=>e.stopPropagation()} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();setEdit(task);}} onClick={e=>{e.stopPropagation();setEdit(task);}} style={{background:'none',border:'none',cursor:'pointer',display:'flex',opacity:.55,touchAction:'manipulation',WebkitTapHighlightColor:'transparent',flexShrink:0}}><IcPencil c={p.sub} s={15}/></button>
-              <button onPointerDown={e=>e.stopPropagation()} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();del(task.id);}} onClick={e=>{e.stopPropagation();del(task.id);}} style={{background:'none',border:'none',cursor:'pointer',display:'flex',opacity:.3,touchAction:'manipulation',WebkitTapHighlightColor:'transparent',flexShrink:0}}><IcX c={p.dot} s={15}/></button>
+              {/* edit + delete */}
+              <button onPointerDown={e=>e.stopPropagation()} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();setEdit(task);}} onClick={e=>{e.stopPropagation();setEdit(task);}} style={{background:'none',border:'none',cursor:'pointer',display:'flex',opacity:.5,touchAction:'manipulation',WebkitTapHighlightColor:'transparent',flexShrink:0,padding:4}}><IcPencil c={p.sub} s={15}/></button>
+              <button onPointerDown={e=>e.stopPropagation()} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();del(task.id);}} onClick={e=>{e.stopPropagation();del(task.id);}} style={{background:'none',border:'none',cursor:'pointer',display:'flex',opacity:.28,touchAction:'manipulation',WebkitTapHighlightColor:'transparent',flexShrink:0,padding:4}}><IcX c={p.dot} s={15}/></button>
             </div>
           </div>;
         }}
@@ -1269,7 +1279,7 @@ function DailyTab({tasks,setTasks,lists,setLists,convertToHabit,dark,onToggleDar
   </div>;
 }
 
-/* ===== SORTABLE LIST — handle-based drag, native pointer events ===== */
+/* ===== SORTABLE LIST — drag by grip (instant) or long-press anywhere on card (220ms) ===== */
 function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
   const[src,setSrc]=useState(null);
   const[tgt,setTgt]=useState(null);
@@ -1278,8 +1288,10 @@ function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
   const refs=useRef([]);
   const meas=useRef({tops:[],heights:[]});
   const itemsLenRef=useRef(items.length);
+  const longPressRef=useRef({}); // {idx: timerId}
   useEffect(()=>{itemsLenRef.current=items.length;},[items.length]);
 
+  // — measure item positions for hit-testing during drag
   function measure(){
     const tops=[],heights=[];
     refs.current.forEach(el=>{
@@ -1289,6 +1301,7 @@ function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
     meas.current={tops,heights};
   }
 
+  // — shift non-dragged items out of the way
   function applyShifts(s,newTgt){
     const{heights}=meas.current;
     const h=(heights[s]||80)+gap;
@@ -1301,38 +1314,28 @@ function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
     });
   }
 
-  function onHandleDown(idx,e){
-    if(e.button!=null&&e.button!==0)return;
-    e.stopPropagation();
-    e.preventDefault();
-    const el=refs.current[idx];
-    if(!el)return;
-
-    // Prevent scroll on the dragged item and all siblings during drag
+  // — shared drag activation (called from both grip and long-press)
+  function startDrag(idx,initY,pointerId){
+    const el=refs.current[idx];if(!el)return;
     el.style.touchAction='none';
-    try{el.setPointerCapture(e.pointerId);}catch(_){}
-
+    try{el.setPointerCapture(pointerId);}catch(_){}
     measure();
-    srcRef.current=idx;
-    tgtRef.current=idx;
-    const startY=e.clientY;
-    const pId=e.pointerId;
-
+    srcRef.current=idx;tgtRef.current=idx;
     refs.current.forEach((r,i)=>{
       if(r)r.style.transition=i===idx?'box-shadow .15s':'transform .22s cubic-bezier(.2,.8,.4,1)';
     });
     el.style.transform='translateY(0) scale(1.04)';
-    el.style.boxShadow='0 28px 64px rgba(0,0,0,.32)';
+    el.style.boxShadow='0 32px 72px rgba(0,0,0,.28)';
     el.style.zIndex='100';
     setSrc(idx);setTgt(idx);
     if(navigator.vibrate)navigator.vibrate(30);
 
-    function moveHandler(me){
-      if(me.pointerId!==pId)return;
+    function onMove(me){
+      if(me.pointerId!==pointerId)return;
       me.preventDefault();
       const s=srcRef.current;if(s===null)return;
-      const d=me.clientY-startY;
-      if(el)el.style.transform='translateY('+d+'px) scale(1.04)';
+      const d=me.clientY-initY;
+      el.style.transform='translateY('+d+'px) scale(1.04)';
       const{tops,heights}=meas.current;
       const srcCenter=tops[s]+heights[s]/2+d;
       let newTgt=s;
@@ -1345,33 +1348,70 @@ function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
       }
       if(newTgt!==tgtRef.current){tgtRef.current=newTgt;setTgt(newTgt);applyShifts(s,newTgt);}
     }
-
-    function endHandler(){
-      el.removeEventListener('pointermove',moveHandler);
-      el.removeEventListener('pointerup',endHandler);
-      el.removeEventListener('pointercancel',endHandler);
+    function onEnd(){
+      el.removeEventListener('pointermove',onMove);
+      el.removeEventListener('pointerup',onEnd);
+      el.removeEventListener('pointercancel',onEnd);
       const s=srcRef.current,t=tgtRef.current;
       if(s!==null&&t!==null&&t!==s)onReorder(s,t);
       srcRef.current=null;tgtRef.current=null;
-      refs.current.forEach(r=>{
-        if(r){
-          r.style.transition='transform .25s cubic-bezier(.2,.8,.4,1), box-shadow .2s';
-          r.style.transform='';r.style.boxShadow='';r.style.zIndex='';
-          r.style.touchAction='';
-        }
-      });
+      refs.current.forEach(r=>{if(r){r.style.transition='transform .25s cubic-bezier(.2,.8,.4,1), box-shadow .2s';r.style.transform='';r.style.boxShadow='';r.style.zIndex='';r.style.touchAction='';}});
       setSrc(null);setTgt(null);
       setTimeout(()=>{refs.current.forEach(r=>{if(r)r.style.transition='';});},280);
     }
+    el.addEventListener('pointermove',onMove,{passive:false});
+    el.addEventListener('pointerup',onEnd);
+    el.addEventListener('pointercancel',onEnd);
+  }
 
-    el.addEventListener('pointermove',moveHandler,{passive:false});
-    el.addEventListener('pointerup',endHandler);
-    el.addEventListener('pointercancel',endHandler);
+  // — grip icon: instant drag start
+  function onHandleDown(idx,e){
+    if(e.button!=null&&e.button!==0)return;
+    e.stopPropagation();e.preventDefault();
+    // cancel any pending long-press for this index
+    if(longPressRef.current[idx]!=null){clearTimeout(longPressRef.current[idx]);delete longPressRef.current[idx];}
+    startDrag(idx,e.clientY,e.pointerId);
+  }
+
+  // — card body: long-press drag (220ms, max 8px movement cancels)
+  function onItemPointerDown(idx,e){
+    if(e.button!=null&&e.button!==0)return;
+    // skip buttons, inputs and elements opted out of drag
+    if(e.target.closest&&e.target.closest('button,input,textarea,select,[data-nodrag]'))return;
+    const pId=e.pointerId,sx=e.clientX,sy=e.clientY;
+    const el=refs.current[idx];if(!el)return;
+
+    function cleanup(){
+      if(longPressRef.current[idx]!=null){clearTimeout(longPressRef.current[idx]);delete longPressRef.current[idx];}
+      el.removeEventListener('pointermove',onCancel);
+      el.removeEventListener('pointerup',onCancel);
+      el.removeEventListener('pointercancel',onCancel);
+    }
+    function onCancel(me){
+      if(me.pointerId!==pId)return;
+      // cancel if finger moved more than 8px
+      if(me.type==='pointermove'&&Math.abs(me.clientX-sx)<=8&&Math.abs(me.clientY-sy)<=8)return;
+      cleanup();
+    }
+
+    const timer=setTimeout(()=>{
+      el.removeEventListener('pointermove',onCancel);
+      el.removeEventListener('pointerup',onCancel);
+      el.removeEventListener('pointercancel',onCancel);
+      delete longPressRef.current[idx];
+      startDrag(idx,sy,pId);
+    },220);
+
+    longPressRef.current[idx]=timer;
+    el.addEventListener('pointermove',onCancel,{passive:true});
+    el.addEventListener('pointerup',onCancel);
+    el.addEventListener('pointercancel',onCancel);
   }
 
   return <div style={{position:'relative',overflow:'visible'}}>
     {items.map((item,idx)=>{
       const isDrag=idx===src;
+      // handleProps: passed to the grip icon for instant drag
       const handleProps={
         onPointerDown:(e)=>onHandleDown(idx,e),
         style:{touchAction:'none',cursor:'grab',userSelect:'none',WebkitUserSelect:'none'},
@@ -1379,6 +1419,7 @@ function SortableList({items,keyFn,renderItem,onReorder,gap=16}){
       return <div
         key={keyFn(item,idx)}
         ref={el=>refs.current[idx]=el}
+        onPointerDown={(e)=>onItemPointerDown(idx,e)}
         onContextMenu={e=>e.preventDefault()}
         style={{marginBottom:gap,touchAction:'pan-y',position:'relative',borderRadius:28,willChange:'transform'}}
       >{renderItem(item,idx,isDrag,handleProps)}</div>;
@@ -1606,7 +1647,7 @@ function HabitsTab({habits,setHabits,dark,onToggleDark,sharedHabits=[],myUid}){
         :[...hh.days,{date:tday,state:'failed'}];
       return{...hh,totalReps:(hh.totalReps||0)+delta,days:newDays};
     }));
-    // Do NOT move to end вЂ” card will naturally disappear from undT since state='failed'
+    // Do NOT move to end — card will naturally disappear from undT since state='failed'
   }
   function swU(h){setHabits(hs=>{const rest=hs.filter(x=>x.id!==h.id);return[...rest,h];});} // stack up = skip
 
@@ -2103,11 +2144,19 @@ function ChatView({authUser,chatId,otherProfile,otherUid,onBack,tasks,habits,lis
   }
   async function sendSharedStack(list,listTasks){
     const toUid=otherUid||otherProfile?.uid;
-    if(!listTasks||!listTasks.length||!toUid)return;
-    const name=list?list.name:`Дела (${listTasks.length})`;
-    const ssId=await createSharedStackDoc(authUser.uid,toUid,name,listTasks);
-    await sendChatMsg(chatId,authUser.uid,'sharedstack',{name,sharedStackId:ssId});
-    setShareMode(null);setSelTasks([]);
+    if(!listTasks?.length||!toUid){console.warn('sendSharedStack: toUid=',toUid,'tasks=',listTasks?.length);return;}
+    setSending(true);
+    try{
+      const name=list?list.name:`Дела (${listTasks.length})`;
+      const ssId=await createSharedStackDoc(authUser.uid,toUid,name,listTasks);
+      await sendChatMsg(chatId,authUser.uid,'sharedstack',{name,sharedStackId:ssId});
+      setShareMode(null);setSelTasks([]);
+    }catch(err){
+      console.error('sendSharedStack error:',err);
+      alert('Не удалось отправить колоду: '+(err?.message||err?.code||'Ошибка Firestore'));
+    }finally{
+      setSending(false);
+    }
   }
 
   const btnBase={border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0};
@@ -2400,7 +2449,7 @@ function SharedHabitCard({sh,myUid,dark,handleProps={},onEdit}){
     useEffect(()=>{if(ref.current)ref.current.scrollLeft=ref.current.scrollWidth;},[]);
     return <div>
       <div style={{fontSize:9,fontWeight:700,color:p.sub,letterSpacing:.6,textTransform:'uppercase',marginBottom:3,opacity:.8}}>{label}</div>
-      <div ref={ref} style={{display:'flex',gap:3,overflowX:'auto',scrollbarWidth:'none',msOverflowStyle:'none',paddingBottom:2}} onTouchStart={e=>e.stopPropagation()} onTouchMove={e=>e.stopPropagation()}>
+      <div ref={ref} data-nodrag="true" style={{display:'flex',gap:3,overflowX:'auto',scrollbarWidth:'none',msOverflowStyle:'none',paddingBottom:2}} onTouchStart={e=>e.stopPropagation()} onTouchMove={e=>e.stopPropagation()}>
         {d30.map((date,i)=>{
           const done=getVal(uid,date);
           const isT=date===tday;
@@ -2707,10 +2756,10 @@ function App(){
 
   // в”Ђв”Ђ Midnight reset в”Ђв”Ђ
   // Logic:
-  //   вЂў Recurring tasks (daily/weekly/etc) в†’ reset done:false so they reappear
-  //   вЂў Done non-recurring tasks в†’ removed (они ушли, день закончился)
-  //   вЂў Undone tasks of any kind в†’ carry over as-is
-  //   вЂў Habits в†’ ensureDays runs again with fresh 90-day window (today shifts forward)
+  //   • Recurring tasks (daily/weekly/etc) → reset done:false so they reappear
+  //   • Done non-recurring tasks → removed (они ушли, день закончился)
+  //   • Undone tasks of any kind → carry over as-is
+  //   • Habits → ensureDays runs again with fresh 90-day window (today shifts forward)
   useEffect(()=>{
     function doReset(){
       const stored=ld('lastResetDate','');
@@ -2718,7 +2767,7 @@ function App(){
       if(stored===today)return; // already reset today
       sv('lastResetDate',today);
 
-      // Reset tasks вЂ” check each recurrence period individually
+      // Reset tasks — check each recurrence period individually
       setTasks(ts=>{
         const now=new Date();
         const todayDow=now.getDay();
@@ -2865,7 +2914,7 @@ function App(){
       {showAccount&&authUser&&<AccountSheet user={authUser} syncStatus={syncStatus} lastSync={lastSync} onLogout={onLogout} onClose={()=>setShowAccount(false)}/>}
       {needsReenter&&authUser&&<ReenterSheet email={authUser.email} onConfirm={onReenter} onLogout={onLogout} onClose={()=>setNeedsReenter(false)}/>}
       <div style={{flex:1,overflow:'hidden',maxWidth:ui.isPhone?'100%':600,width:'100%',margin:'0 auto',padding:'0 '+ui.sidePad+'px',position:'relative'}}>
-        {/* All tabs always mounted вЂ” state preserved. Slide between them via CSS. */}
+        {/* All tabs always mounted — state preserved. Slide between them via CSS. */}
         {[0,1,2,3].map(tid=>{
           const active=tid===tab;
           const offset=active?0:(tid<tab?-100:100);
